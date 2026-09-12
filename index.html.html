@@ -1,0 +1,1488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup Studio — ModDesignWorks</title>
+<style>
+  :root{
+    --ink:#16181d;
+    --paper:#f6f5f2;
+    --line:#e2e0da;
+    --accent:#2f6f5e;
+    --accent-soft:#e7f0ec;
+    --warn:#b5502f;
+    --panel:#ffffff;
+    --mono: 'SF Mono', 'JetBrains Mono', Menlo, monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);
+    font-family: -apple-system, 'Inter', 'Segoe UI', Helvetica, Arial, sans-serif;}
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 20px 60px;}
+  header{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:8px;}
+  header h1{font-size:19px;margin:0;letter-spacing:-0.01em;}
+  header h1 span{color:var(--accent);}
+  header p{margin:0;font-size:12.5px;color:#6b6f76;font-family:var(--mono);}
+
+  .layout{display:grid;grid-template-columns:300px 1fr;gap:20px;}
+  @media (max-width:860px){.layout{grid-template-columns:1fr;}}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;}
+  .panel + .panel{margin-top:14px;}
+  .panel h3{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#6b6f76;margin:0 0 12px;}
+  .hint{font-size:11.5px;line-height:1.5;color:#6b6f76;margin:0 0 14px;}
+
+  .drop{border:1.5px dashed #c7c3ba;border-radius:8px;padding:22px 14px;text-align:center;cursor:pointer;font-size:13px;color:#6b6f76;transition:.15s;display:block;}
+  .drop:hover{border-color:var(--accent);background:var(--accent-soft);color:var(--ink);}
+  .drop.has-file{border-style:solid;border-color:var(--accent);background:var(--accent-soft);color:var(--ink);}
+  input[type=file]{display:none;}
+
+  fieldset{border:none;padding:0;margin:0 0 16px;}
+  fieldset:last-child{margin-bottom:0;}
+  legend{font-size:12px;font-weight:600;margin-bottom:8px;padding:0;}
+  .seg{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+  .seg.cols3{grid-template-columns:1fr 1fr 1fr;}
+  .seg button{border:1px solid var(--line);background:#fff;border-radius:7px;padding:8px 6px;font-size:12px;cursor:pointer;color:var(--ink);}
+  .seg button.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+  .seg button:hover:not(.active){border-color:var(--accent);}
+  .seg button:focus-visible, .export-btn:focus-visible, .ghost-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+
+  .row{display:flex;align-items:center;justify-content:space-between;font-size:12.5px;margin-bottom:10px;gap:10px;}
+  .row input[type=range]{width:120px;}
+  .swatches{display:flex;gap:6px;flex-wrap:wrap;}
+  .sw{width:22px;height:22px;border-radius:50%;border:1.5px solid rgba(0,0,0,.12);cursor:pointer;}
+  .sw.active{outline:2px solid var(--ink);outline-offset:2px;}
+
+  .wpgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px;}
+  .wpgrid figure{margin:0;cursor:pointer;}
+  .wpgrid canvas{width:100%;height:40px;display:block;border-radius:6px;border:1.5px solid transparent;}
+  .wpgrid figure.active canvas{border-color:var(--ink);}
+  .wpgrid figcaption{font-size:10px;color:#6b6f76;text-align:center;margin-top:3px;}
+  .wpgrid figure.active figcaption{color:var(--ink);font-weight:600;}
+
+  .stage{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;display:flex;flex-direction:column;align-items:center;gap:14px;min-height:520px;justify-content:center;}
+  canvas{max-width:100%;max-height:70vh;background:#111;border-radius:6px;}
+  .stage-empty{color:#9a978f;font-size:13px;text-align:center;font-family:var(--mono);line-height:1.7;}
+
+  .transport{display:flex;align-items:center;gap:10px;width:100%;max-width:640px;}
+  .transport button{border:1px solid var(--line);background:#fff;border-radius:7px;width:34px;height:34px;cursor:pointer;font-size:14px;}
+  .transport input[type=range]{flex:1;}
+  .time{font-family:var(--mono);font-size:11.5px;color:#6b6f76;min-width:80px;text-align:right;}
+
+  .export-btn{width:100%;background:var(--accent);color:#fff;border:none;border-radius:8px;padding:13px;font-size:13.5px;font-weight:600;cursor:pointer;letter-spacing:.01em;}
+  .export-btn:disabled{background:#c7c3ba;cursor:not-allowed;}
+  .export-btn:hover:not(:disabled){background:#265c4e;}
+  .ghost-btn{width:100%;background:#fff;color:var(--ink);border:1px solid var(--ink);border-radius:8px;padding:10px;font-size:12.5px;font-weight:600;cursor:pointer;}
+  .ghost-btn:hover:not(:disabled){background:var(--ink);color:#fff;}
+  .ghost-btn:disabled{border-color:var(--line);color:#9a978f;cursor:not-allowed;background:#fff;}
+  .progress{height:5px;background:var(--line);border-radius:3px;overflow:hidden;margin-top:10px;}
+  .progress i{display:block;height:100%;width:0%;background:var(--accent);transition:width .1s linear;}
+  .status{font-size:11.5px;font-family:var(--mono);color:#6b6f76;margin-top:8px;min-height:14px;line-height:1.5;}
+  a.dl{display:none;text-decoration:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Mockup<span>Studio</span></h1>
+    <p>screen recording → device frame → export</p>
+  </header>
+
+  <div class="layout">
+    <!-- CONTROLS -->
+    <div class="controls">
+      <div class="panel">
+        <h3>Source video</h3>
+        <label class="drop" id="dropZone">
+          Click or drop a video file<br>(mp4, mov, webm)
+          <input type="file" id="fileInput" accept="video/*">
+        </label>
+      </div>
+
+      <div class="panel">
+        <h3>Format</h3>
+        <fieldset>
+          <legend>Canvas</legend>
+          <div class="seg" id="formatSeg">
+            <button data-format="landscape" class="active">Landscape</button>
+            <button data-format="portrait">Vertical (IG)</button>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Layout</legend>
+          <div class="seg" id="layoutSeg">
+            <button data-layout="single" class="active">Single frame</button>
+            <button data-layout="layered">Layered (multi-device)</button>
+          </div>
+        </fieldset>
+        <fieldset id="deviceFrameFieldset">
+          <legend>Device frame</legend>
+          <div class="seg cols3" id="frameSeg">
+            <button data-frame="none" class="active">None</button>
+            <button data-frame="laptop">Laptop</button>
+            <button data-frame="desktop">Desktop</button>
+            <button data-frame="mobile">Mobile</button>
+            <button data-frame="browser">Browser</button>
+          </div>
+        </fieldset>
+        <fieldset id="finishFieldset">
+          <legend>Finish</legend>
+          <div class="seg" id="finishSeg">
+            <button data-finish="black" class="active">Space black</button>
+            <button data-finish="silver">Silver</button>
+          </div>
+          <div class="row" style="margin-top:10px;margin-bottom:0;"><span>Screen glare</span><input type="checkbox" id="glareChk"></div>
+        </fieldset>
+        <fieldset>
+          <legend>How the video sits in the screen</legend>
+          <div class="seg cols3" id="fitSeg">
+            <button data-fit="cover" class="active">Fill</button>
+            <button data-fit="contain">Show all</button>
+            <button data-fit="smart">Follow action</button>
+          </div>
+        </fieldset>
+      </div>
+
+      <div class="panel" id="camPanel" style="display:none;">
+        <h3>Follow the action</h3>
+        <p class="hint">Scans the recording for where things are moving, then pans and zooms to stay on it. Your full picture height is kept, so nothing is cut off the top or bottom — the camera moves sideways instead.</p>
+        <div class="row"><span>Zoom strength</span><input type="range" id="camZoom" min="0" max="100" value="55"></div>
+        <div class="row"><span>Smoothness</span><input type="range" id="camSmooth" min="0" max="100" value="60"></div>
+        <div class="row"><span>Show camera path</span><input type="checkbox" id="camDebug"></div>
+        <button class="ghost-btn" id="analyzeBtn" disabled>Scan recording</button>
+        <div class="progress"><i id="camBar"></i></div>
+        <div class="status" id="camStatus"></div>
+      </div>
+
+      <div class="panel" id="layeredPanel" style="display:none;">
+        <h3>Layered devices</h3>
+        <fieldset>
+          <legend>Layer A (back)</legend>
+          <div class="seg cols3" id="layerAFrameSeg">
+            <button data-frame="laptop" class="active">Laptop</button>
+            <button data-frame="desktop">Desktop</button>
+            <button data-frame="browser">Browser</button>
+          </div>
+          <div class="row"><span>X position</span><input type="range" id="layerAx" min="0" max="100" value="50"></div>
+          <div class="row"><span>Y position</span><input type="range" id="layerAy" min="0" max="100" value="52"></div>
+          <div class="row"><span>Size</span><input type="range" id="layerAscale" min="20" max="100" value="70"></div>
+        </fieldset>
+        <fieldset>
+          <legend style="display:flex;align-items:center;gap:6px;">
+            <input type="checkbox" id="layerBEnabled" checked style="margin:0;"> Layer B (front)
+          </legend>
+          <div class="seg cols3" id="layerBFrameSeg">
+            <button data-frame="mobile" class="active">Mobile</button>
+            <button data-frame="laptop">Laptop</button>
+            <button data-frame="browser">Browser</button>
+          </div>
+          <div class="row"><span>X position</span><input type="range" id="layerBx" min="0" max="100" value="76"></div>
+          <div class="row"><span>Y position</span><input type="range" id="layerBy" min="0" max="100" value="80"></div>
+          <div class="row"><span>Size</span><input type="range" id="layerBscale" min="10" max="80" value="30"></div>
+        </fieldset>
+      </div>
+
+      <div class="panel">
+        <h3>Background</h3>
+        <fieldset>
+          <legend>Style</legend>
+          <div class="seg cols3" id="bgSeg">
+            <button data-bg="wallpaper" class="active">Wallpaper</button>
+            <button data-bg="solid">Solid</button>
+            <button data-bg="gradient">Gradient</button>
+            <button data-bg="blur">Blurred video</button>
+            <button data-bg="photo">Real photo (desk/monitor)</button>
+          </div>
+        </fieldset>
+        <div id="wallpaperControls">
+          <div class="wpgrid" id="wpGrid"></div>
+          <div class="row"><span>Brightness</span><input type="range" id="wpDim" min="35" max="130" value="100"></div>
+        </div>
+        <div class="row" id="solidRow" style="display:none;">
+          <span>Color</span>
+          <div class="swatches" id="swatches"></div>
+        </div>
+        <div id="photoControls" style="display:none;">
+          <label class="drop" id="photoDrop" style="padding:14px;font-size:12px;margin-bottom:12px;">
+            Click to upload a desk / monitor photo
+            <input type="file" id="photoInput" accept="image/*">
+          </label>
+          <div class="row"><span>Screen X</span><input type="range" id="scrX" min="0" max="100" value="30"></div>
+          <div class="row"><span>Screen Y</span><input type="range" id="scrY" min="0" max="100" value="20"></div>
+          <div class="row"><span>Screen width</span><input type="range" id="scrW" min="5" max="100" value="40"></div>
+          <div class="row"><span>Screen height</span><input type="range" id="scrH" min="5" max="100" value="30"></div>
+          <div class="row"><span>Corner rounding</span><input type="range" id="scrR" min="0" max="40" value="2"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Export</h3>
+        <button class="export-btn" id="exportBtn" disabled>Load a video first</button>
+        <div class="progress"><i id="progressBar"></i></div>
+        <div class="status" id="statusText"></div>
+        <button class="export-btn" id="convertBtn" style="display:none;margin-top:8px;background:var(--warn);">Convert to MP4</button>
+        <a class="dl" id="dlLink"></a>
+        <a class="dl" id="dlLinkMp4"></a>
+      </div>
+    </div>
+
+    <!-- STAGE -->
+    <div class="stage">
+      <div id="stageEmpty" class="stage-empty">Your framed preview will appear here.<br>Upload a video on the left to get started.</div>
+      <canvas id="canvas" style="display:none;"></canvas>
+      <div class="transport" id="transport" style="display:none;">
+        <button id="playBtn" aria-label="Play or pause">▶</button>
+        <input type="range" id="seek" min="0" max="1000" value="0" aria-label="Seek">
+        <span class="time" id="timeLabel">0:00 / 0:00</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<video id="srcVideo" style="display:none;" playsinline muted></video>
+
+<script>
+const state = {
+  format: 'landscape',
+  frame: 'none',
+  fit: 'cover',
+  bg: 'wallpaper',
+  wallpaper: 'aurora',
+  wpDim: 100,
+  finish: 'black',
+  glare: false,
+  color: '#1f2430',
+  hasVideo: false,
+  bgImage: null,
+  photoScreen: {x:30,y:20,w:40,h:30,r:2},
+  layout: 'single',
+  layerA: {frame:'laptop', x:50, y:52, scale:70},
+  layerB: {enabled:true, frame:'mobile', x:76, y:80, scale:30},
+};
+
+// Preview-only chrome (placement guides, camera path overlay) must never end up
+// in the exported file, so every draw knows whether it is a preview or a frame
+// that MediaRecorder is capturing.
+let isExporting = false;
+
+const COLORS = ['#1f2430','#0e0f11','#f6f5f2','#2f6f5e','#b5502f','#3a4a6b'];
+const swatchesEl = document.getElementById('swatches');
+COLORS.forEach((c,i)=>{
+  const d = document.createElement('div');
+  d.className = 'sw'+(i===0?' active':'');
+  d.style.background = c;
+  d.onclick = ()=>{ state.color=c; [...swatchesEl.children].forEach(x=>x.classList.remove('active')); d.classList.add('active'); draw(); };
+  swatchesEl.appendChild(d);
+});
+
+/* ============================================================
+   WALLPAPERS
+   Drawn with code rather than loaded as images, so the whole tool
+   stays one file with nothing to download and every wallpaper
+   renders crisp at any canvas size.
+   ============================================================ */
+const WALLPAPERS = [
+  {id:'aurora', name:'Aurora', type:'ribbon', base:'#060a18', ribbons:[
+    {y:0.16, amp:0.10, thick:0.22, freq:1.6, phase:0.2, c1:'#1b3f8a', c2:'#2aa1b3'},
+    {y:0.38, amp:0.12, thick:0.20, freq:1.2, phase:1.4, c1:'#5b2f9d', c2:'#1f6f6a'},
+    {y:0.60, amp:0.09, thick:0.26, freq:1.9, phase:2.6, c1:'#0e2a5c', c2:'#7a3f9d'},
+  ]},
+  {id:'tide', name:'Tide', type:'ribbon', base:'#03121d', ribbons:[
+    {y:0.22, amp:0.08, thick:0.24, freq:1.3, phase:0.6, c1:'#0a4f6b', c2:'#2fa7a0'},
+    {y:0.48, amp:0.11, thick:0.28, freq:1.7, phase:2.0, c1:'#062f45', c2:'#0f6b8a'},
+  ]},
+  {id:'dusk', name:'Dusk', type:'mesh', base:'#160c26', blobs:[
+    {x:0.18,y:0.22,r:0.62,c:'#8f3570',a:0.95},
+    {x:0.80,y:0.30,r:0.55,c:'#d9663f',a:0.80},
+    {x:0.52,y:0.88,r:0.70,c:'#3d2168',a:0.95},
+  ]},
+  {id:'ember', name:'Ember', type:'mesh', base:'#170b08', blobs:[
+    {x:0.25,y:0.75,r:0.60,c:'#c2502a',a:0.90},
+    {x:0.76,y:0.24,r:0.55,c:'#e0933c',a:0.70},
+    {x:0.50,y:0.50,r:0.45,c:'#6b2118',a:0.90},
+  ]},
+  {id:'meadow', name:'Meadow', type:'mesh', base:'#06150e', blobs:[
+    {x:0.22,y:0.30,r:0.60,c:'#2f6f5e',a:0.95},
+    {x:0.78,y:0.72,r:0.58,c:'#6aa84f',a:0.62},
+    {x:0.55,y:0.18,r:0.40,c:'#10493a',a:0.90},
+  ]},
+  {id:'graphite', name:'Graphite', type:'mesh', base:'#0e0f12', blobs:[
+    {x:0.30,y:0.25,r:0.65,c:'#333842',a:0.95},
+    {x:0.78,y:0.78,r:0.55,c:'#4a515d',a:0.70},
+  ]},
+  {id:'sandstone', name:'Sandstone', type:'mesh', light:true, base:'#efe4d4', blobs:[
+    {x:0.25,y:0.28,r:0.60,c:'#e3b487',a:0.90},
+    {x:0.80,y:0.70,r:0.55,c:'#cf8e6b',a:0.72},
+    {x:0.55,y:0.98,r:0.50,c:'#b9c4b2',a:0.70},
+  ]},
+  {id:'ink', name:'Ink', type:'mesh', base:'#08090c', blobs:[
+    {x:0.50,y:0.35,r:0.70,c:'#1b2a4a',a:0.90},
+    {x:0.85,y:0.88,r:0.45,c:'#2b3550',a:0.60},
+  ]},
+];
+
+// Fading a radial gradient to transparent *black* muddies the colour as it goes,
+// so the outer stop has to be the same hue at zero alpha instead.
+function rgba(hex, a){
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;
+}
+
+function renderWallpaper(cv, W, H, wp, dim){
+  cv.width = W; cv.height = H;
+  const c = cv.getContext('2d');
+  c.fillStyle = wp.base;
+  c.fillRect(0,0,W,H);
+
+  c.save();
+  c.filter = `blur(${Math.max(2, Math.round(Math.min(W,H)*0.075))}px)`;
+  if(wp.type === 'ribbon'){
+    const steps = 26;
+    wp.ribbons.forEach(rb=>{
+      const g = c.createLinearGradient(0, rb.y*H, W, (rb.y+rb.thick)*H);
+      g.addColorStop(0, rb.c1);
+      g.addColorStop(1, rb.c2);
+      c.fillStyle = g;
+      c.beginPath();
+      for(let i=0;i<=steps;i++){
+        const t=i/steps, X=-W*0.15 + t*W*1.3;
+        const Y=(rb.y + Math.sin(t*Math.PI*rb.freq + rb.phase)*rb.amp)*H;
+        i===0 ? c.moveTo(X,Y) : c.lineTo(X,Y);
+      }
+      for(let i=steps;i>=0;i--){
+        const t=i/steps, X=-W*0.15 + t*W*1.3;
+        const Y=(rb.y + Math.sin(t*Math.PI*rb.freq + rb.phase)*rb.amp + rb.thick)*H;
+        c.lineTo(X,Y);
+      }
+      c.closePath();
+      c.fill();
+    });
+  } else {
+    wp.blobs.forEach(b=>{
+      const R = b.r*Math.max(W,H);
+      const g = c.createRadialGradient(b.x*W, b.y*H, 0, b.x*W, b.y*H, R);
+      g.addColorStop(0,   rgba(b.c, b.a));
+      g.addColorStop(0.6, rgba(b.c, b.a*0.35));
+      g.addColorStop(1,   rgba(b.c, 0));
+      c.fillStyle = g;
+      c.fillRect(0,0,W,H);
+    });
+  }
+  c.restore();
+
+  // Gentle falloff at the edges so the device reads as the subject.
+  const v = c.createRadialGradient(W/2, H*0.45, Math.min(W,H)*0.12, W/2, H*0.5, Math.max(W,H)*0.78);
+  v.addColorStop(0, 'rgba(0,0,0,0)');
+  v.addColorStop(1, wp.light ? 'rgba(90,70,50,0.20)' : 'rgba(0,0,0,0.40)');
+  c.fillStyle = v;
+  c.fillRect(0,0,W,H);
+
+  if(dim < 100){
+    c.fillStyle = `rgba(0,0,0,${(100-dim)/65*0.75})`;
+    c.fillRect(0,0,W,H);
+  } else if(dim > 100){
+    c.fillStyle = `rgba(255,255,255,${(dim-100)/30*0.28})`;
+    c.fillRect(0,0,W,H);
+  }
+}
+
+const wpCache = {key:null, canvas:document.createElement('canvas')};
+function getWallpaperCanvas(W,H){
+  const key = `${state.wallpaper}|${W}x${H}|${state.wpDim}`;
+  if(wpCache.key !== key){
+    const wp = WALLPAPERS.find(w=>w.id===state.wallpaper) || WALLPAPERS[0];
+    renderWallpaper(wpCache.canvas, W, H, wp, state.wpDim);
+    wpCache.key = key;
+  }
+  return wpCache.canvas;
+}
+
+const wpGrid = document.getElementById('wpGrid');
+WALLPAPERS.forEach(wp=>{
+  const fig = document.createElement('figure');
+  if(wp.id === state.wallpaper) fig.classList.add('active');
+  const thumb = document.createElement('canvas');
+  renderWallpaper(thumb, 88, 50, wp, 100);
+  const cap = document.createElement('figcaption');
+  cap.textContent = wp.name;
+  fig.append(thumb, cap);
+  fig.onclick = ()=>{
+    state.wallpaper = wp.id;
+    [...wpGrid.children].forEach(f=>f.classList.remove('active'));
+    fig.classList.add('active');
+    draw();
+  };
+  wpGrid.appendChild(fig);
+});
+document.getElementById('wpDim').addEventListener('input', e=>{
+  state.wpDim = +e.target.value;
+  draw();
+});
+
+function wireSeg(id, key, cb){
+  const seg = document.getElementById(id);
+  seg.querySelectorAll('button').forEach(btn=>{
+    btn.onclick = ()=>{
+      seg.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      state[key] = btn.dataset[key];
+      if(cb) cb();
+      sizeCanvas();
+      draw();
+    };
+  });
+}
+wireSeg('formatSeg','format');
+wireSeg('frameSeg','frame');
+wireSeg('fitSeg','fit', ()=>{
+  const smart = state.fit === 'smart';
+  document.getElementById('camPanel').style.display = smart ? 'block' : 'none';
+  if(smart && state.hasVideo && !cam.samples && !cam.analyzing) analyzeMotion();
+});
+wireSeg('finishSeg','finish');
+document.getElementById('glareChk').addEventListener('change', e=>{
+  state.glare = e.target.checked;
+  draw();
+});
+wireSeg('bgSeg','bg', ()=>{
+  document.getElementById('photoControls').style.display = state.bg==='photo' ? 'block' : 'none';
+  document.getElementById('wallpaperControls').style.display = state.bg==='wallpaper' ? 'block' : 'none';
+  document.getElementById('solidRow').style.display = (state.bg==='solid' || state.bg==='gradient') ? 'flex' : 'none';
+});
+
+document.getElementById('layoutSeg').querySelectorAll('button').forEach(btn=>{
+  btn.onclick = ()=>{
+    document.querySelectorAll('#layoutSeg button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    state.layout = btn.dataset.layout;
+    const layered = state.layout === 'layered';
+    document.getElementById('layeredPanel').style.display = layered ? 'block' : 'none';
+    document.getElementById('deviceFrameFieldset').style.display = layered ? 'none' : 'block';
+    draw();
+  };
+});
+
+function wireLayerFrameSeg(id, layerObj){
+  document.getElementById(id).querySelectorAll('button').forEach(btn=>{
+    btn.onclick = ()=>{
+      document.querySelectorAll(`#${id} button`).forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      layerObj.frame = btn.dataset.frame;
+      draw();
+    };
+  });
+}
+wireLayerFrameSeg('layerAFrameSeg', state.layerA);
+wireLayerFrameSeg('layerBFrameSeg', state.layerB);
+
+['layerAx','layerAy','layerAscale'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', e=>{
+    const key = id==='layerAx'?'x':id==='layerAy'?'y':'scale';
+    state.layerA[key] = +e.target.value;
+    draw();
+  });
+});
+['layerBx','layerBy','layerBscale'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', e=>{
+    const key = id==='layerBx'?'x':id==='layerBy'?'y':'scale';
+    state.layerB[key] = +e.target.value;
+    draw();
+  });
+});
+document.getElementById('layerBEnabled').addEventListener('change', e=>{
+  state.layerB.enabled = e.target.checked;
+  draw();
+});
+
+let photoObjectUrl = null;
+const photoInput = document.getElementById('photoInput');
+photoInput.addEventListener('change', e=>{
+  const f = e.target.files[0];
+  if(!f) return;
+  const img = new Image();
+  img.onload = ()=>{ state.bgImage = img; draw(); };
+  if(photoObjectUrl) URL.revokeObjectURL(photoObjectUrl);
+  photoObjectUrl = URL.createObjectURL(f);
+  img.src = photoObjectUrl;
+});
+
+['scrX','scrY','scrW','scrH','scrR'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', e=>{
+    const key = {scrX:'x',scrY:'y',scrW:'w',scrH:'h',scrR:'r'}[id];
+    state.photoScreen[key] = +e.target.value;
+    draw();
+  });
+});
+
+const dropZone = document.getElementById('dropZone');
+let fileInput = document.getElementById('fileInput');
+const video = document.getElementById('srcVideo');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const stageEmpty = document.getElementById('stageEmpty');
+const transport = document.getElementById('transport');
+const playBtn = document.getElementById('playBtn');
+const seek = document.getElementById('seek');
+const timeLabel = document.getElementById('timeLabel');
+const exportBtn = document.getElementById('exportBtn');
+const progressBar = document.getElementById('progressBar');
+const statusText = document.getElementById('statusText');
+const dlLink = document.getElementById('dlLink');
+const analyzeBtn = document.getElementById('analyzeBtn');
+const camBar = document.getElementById('camBar');
+const camStatus = document.getElementById('camStatus');
+
+['dragover','dragenter'].forEach(ev=>dropZone.addEventListener(ev,e=>{e.preventDefault();dropZone.classList.add('has-file');}));
+dropZone.addEventListener('dragleave', e=>{e.preventDefault();});
+dropZone.addEventListener('drop', e=>{
+  e.preventDefault();
+  const f = e.dataTransfer.files[0];
+  if(f) loadFile(f);
+});
+fileInput.addEventListener('change', e=>{
+  const f = e.target.files[0];
+  if(f) loadFile(f);
+});
+
+function setDropZoneContent(html){
+  dropZone.innerHTML = html + '<input type="file" id="fileInput" accept="video/*">';
+  fileInput = document.getElementById('fileInput');
+  fileInput.addEventListener('change', e=>{
+    const f = e.target.files[0];
+    if(f) loadFile(f);
+  });
+}
+
+let videoObjectUrl = null;
+
+function loadFile(file){
+  if(!file.type.startsWith('video/')){
+    setDropZoneContent(`"${file.name}" isn't a video file. Click to pick another.`);
+    return;
+  }
+  setDropZoneContent(`Loading "${file.name}"…`);
+  stageEmpty.textContent = 'Loading video…';
+  stageEmpty.style.display = 'block';
+  canvas.style.display = 'none';
+  transport.style.display = 'none';
+  resetCamera();
+
+  video.onloadedmetadata = ()=>{
+    state.hasVideo = true;
+    dropZone.classList.add('has-file');
+    setDropZoneContent(`Loaded: ${file.name}<br><span style="font-size:11px;">${video.videoWidth}×${video.videoHeight} · click to replace</span>`);
+    stageEmpty.style.display = 'none';
+    canvas.style.display = 'block';
+    transport.style.display = 'flex';
+    exportBtn.disabled = false;
+    exportBtn.textContent = 'Record & Export';
+    analyzeBtn.disabled = false;
+    sizeCanvas();
+    draw();
+    seek.max = Math.floor(video.duration*10);
+    timeLabel.textContent = `0:00 / ${fmt(video.duration)}`;
+    if(state.fit === 'smart' && !cam.samples) analyzeMotion();
+  };
+  video.onerror = ()=>{
+    const err = video.error;
+    let msg = 'Could not load this video.';
+    if(err){
+      if(err.code === err.MEDIA_ERR_SRC_NOT_SUPPORTED) msg = `Your browser can't play this file's codec (common with some .mov screen recordings — HEVC). Try re-exporting as H.264 mp4, or use a different browser (Safari plays more formats than Chrome).`;
+      else if(err.code === err.MEDIA_ERR_DECODE) msg = 'This video file appears to be corrupted or uses an unsupported codec.';
+    }
+    stageEmpty.textContent = msg;
+    stageEmpty.style.display = 'block';
+    canvas.style.display = 'none';
+    transport.style.display = 'none';
+    setDropZoneContent(`Couldn't load that file. Click to pick another.`);
+  };
+  if(videoObjectUrl) URL.revokeObjectURL(videoObjectUrl);
+  videoObjectUrl = URL.createObjectURL(file);
+  video.src = videoObjectUrl;
+}
+
+function fmt(s){
+  s = Math.max(0,Math.floor(s||0));
+  const m = Math.floor(s/60), r = s%60;
+  return `${m}:${r.toString().padStart(2,'0')}`;
+}
+
+playBtn.onclick = ()=>{
+  if(cam.analyzing) return;
+  if(video.paused){ video.play(); playBtn.textContent='❚❚'; }
+  else { video.pause(); playBtn.textContent='▶'; }
+};
+video.addEventListener('ended', ()=>{ playBtn.textContent='▶'; });
+video.addEventListener('timeupdate', ()=>{
+  if(cam.analyzing) return;
+  if(document.activeElement !== seek) seek.value = Math.floor(video.currentTime*10);
+  timeLabel.textContent = `${fmt(video.currentTime)} / ${fmt(video.duration)}`;
+});
+seek.addEventListener('input', ()=>{ if(!cam.analyzing){ video.currentTime = seek.value/10; draw(); } });
+
+function sizeCanvas(){
+  if(state.format === 'portrait'){ canvas.width=720; canvas.height=1280; }
+  else { canvas.width=1280; canvas.height=720; }
+}
+sizeCanvas();
+
+/* ============================================================
+   SMART CAMERA
+   A virtual camera window travels across the source video.
+   Its aspect always matches the destination screen rect, so at
+   zoom 1 the longer source dimension is the only one cropped —
+   a 16:9 recording inside a phone screen keeps its full height
+   and the camera pans horizontally to follow what's moving.
+   ============================================================ */
+const cam = {
+  samples: null,   // raw motion readings from the scan pass
+  path: null,      // smoothed per-frame camera track
+  analyzing: false,
+  zoom: 55,
+  smooth: 60,
+  debug: false,
+};
+
+function resetCamera(){
+  cam.samples = null;
+  cam.path = null;
+  camBar.style.width = '0%';
+  camStatus.textContent = '';
+  analyzeBtn.textContent = 'Scan recording';
+}
+
+document.getElementById('camZoom').addEventListener('input', e=>{
+  cam.zoom = +e.target.value;
+  if(cam.samples){ buildPath(); draw(); }
+});
+document.getElementById('camSmooth').addEventListener('input', e=>{
+  cam.smooth = +e.target.value;
+  if(cam.samples){ buildPath(); draw(); }
+});
+document.getElementById('camDebug').addEventListener('change', e=>{
+  cam.debug = e.target.checked;
+  draw();
+});
+analyzeBtn.addEventListener('click', ()=>analyzeMotion());
+
+const ANALYZE_RATE = 8;      // playback speed used during the scan pass
+const ANALYZE_W = 64;        // scan resolution — plenty for finding activity
+
+async function analyzeMotion(){
+  if(!state.hasVideo || cam.analyzing) return;
+  cam.analyzing = true;
+  cam.path = null;
+  analyzeBtn.disabled = true;
+  exportBtn.disabled = true;
+  analyzeBtn.textContent = 'Scanning…';
+  camStatus.textContent = 'Watching for movement…';
+  camBar.style.width = '0%';
+
+  const resumeAt = video.currentTime;
+  const wasPlaying = !video.paused;
+  video.pause();
+
+  const AW = ANALYZE_W;
+  const AH = Math.max(4, Math.round(AW * video.videoHeight / video.videoWidth));
+  const ac = document.createElement('canvas');
+  ac.width = AW; ac.height = AH;
+  const actx = ac.getContext('2d', {willReadFrequently:true});
+
+  const samples = [];
+  let prev = null;
+
+  function takeSample(t){
+    actx.drawImage(video, 0, 0, AW, AH);
+    let cur;
+    try { cur = actx.getImageData(0,0,AW,AH).data; }
+    catch(e){ return; }  // tainted canvas — shouldn't happen with object URLs
+    if(prev){
+      let sx=0, sy=0, weight=0, moved=0;
+      let minx=AW, maxx=-1, miny=AH, maxy=-1;
+      for(let p=0, i=0; p<AW*AH; p++, i+=4){
+        const d = Math.abs(cur[i]-prev[i]) + Math.abs(cur[i+1]-prev[i+1]) + Math.abs(cur[i+2]-prev[i+2]);
+        if(d > 45){
+          const x = p % AW, y = (p/AW)|0;
+          sx += x*d; sy += y*d; weight += d; moved++;
+          if(x<minx)minx=x; if(x>maxx)maxx=x;
+          if(y<miny)miny=y; if(y>maxy)maxy=y;
+        }
+      }
+      const frac = moved/(AW*AH);
+      if(weight > 0 && frac > 0.002){
+        samples.push({
+          t,
+          x: (sx/weight)/AW,
+          y: (sy/weight)/AH,
+          spread: Math.max((maxx-minx+1)/AW, (maxy-miny+1)/AH),
+          active: true,
+        });
+      } else {
+        samples.push({t, x:null, y:null, spread:1, active:false});
+      }
+    }
+    prev = cur;
+  }
+
+  await new Promise(resolve=>{
+    let finished = false;
+    const finish = ()=>{ if(!finished){ finished = true; resolve(); } };
+
+    if(typeof video.requestVideoFrameCallback === 'function'){
+      const onFrame = (now, meta)=>{
+        if(finished) return;
+        takeSample(meta.mediaTime);
+        camBar.style.width = Math.min(100, meta.mediaTime/video.duration*100)+'%';
+        if(video.ended) finish();
+        else video.requestVideoFrameCallback(onFrame);
+      };
+      video.addEventListener('ended', finish, {once:true});
+      video.muted = true;
+      video.playbackRate = ANALYZE_RATE;
+      video.currentTime = 0;
+      video.play().then(()=>video.requestVideoFrameCallback(onFrame)).catch(finish);
+    } else {
+      // Firefox and older browsers: step through with seeks instead.
+      const step = 0.2;
+      let t = 0;
+      const onSeeked = ()=>{
+        if(finished) return;
+        takeSample(video.currentTime);
+        camBar.style.width = Math.min(100, t/video.duration*100)+'%';
+        t += step;
+        if(t >= video.duration - 0.05){
+          video.removeEventListener('seeked', onSeeked);
+          finish();
+        } else {
+          video.currentTime = t;
+        }
+      };
+      video.addEventListener('seeked', onSeeked);
+      video.currentTime = 0;
+    }
+  });
+
+  video.pause();
+  video.playbackRate = 1;
+  video.muted = true;
+  video.currentTime = resumeAt;
+  playBtn.textContent = '▶';
+
+  cam.samples = samples;
+  cam.analyzing = false;
+  analyzeBtn.disabled = false;
+  exportBtn.disabled = false;
+  camBar.style.width = '100%';
+
+  const activeCount = samples.filter(s=>s.active).length;
+  if(samples.length < 4){
+    camStatus.textContent = 'Scan found too few frames. The camera will stay centred.';
+    cam.samples = null;
+  } else if(activeCount < samples.length*0.02){
+    camStatus.textContent = 'Almost nothing moves in this recording, so the camera will stay still.';
+  } else {
+    analyzeBtn.textContent = 'Scan again';
+    camStatus.textContent = `Tracked ${activeCount} moments of activity. Adjust zoom and smoothness freely — no rescan needed.`;
+  }
+
+  buildPath();
+  draw();
+  if(wasPlaying) video.play();
+}
+
+// Blurs a 1-D signal with a Gaussian kernel. Because the whole path is known in
+// advance, smoothing looks both backwards and forwards — which is what makes the
+// camera start drifting toward the action just before it happens, instead of
+// lurching after it.
+function gaussianSmooth(arr, sigma){
+  if(sigma < 0.5) return;
+  const r = Math.ceil(sigma*2.5);
+  const k = new Float32Array(r*2+1);
+  let sum = 0;
+  for(let i=-r;i<=r;i++){ const v = Math.exp(-(i*i)/(2*sigma*sigma)); k[i+r]=v; sum+=v; }
+  for(let i=0;i<k.length;i++) k[i] /= sum;
+  const src = Float32Array.from(arr);
+  const n = arr.length;
+  for(let i=0;i<n;i++){
+    let acc = 0;
+    for(let j=-r;j<=r;j++){
+      acc += src[Math.min(n-1, Math.max(0, i+j))] * k[j+r];
+    }
+    arr[i] = acc;
+  }
+}
+
+function buildPath(){
+  if(!cam.samples || !cam.samples.length || !video.duration){ cam.path = null; return; }
+  const FPS = 30;
+  const dur = video.duration;
+  const n = Math.max(2, Math.ceil(dur*FPS)+1);
+  const px = new Float32Array(n), py = new Float32Array(n), pz = new Float32Array(n);
+
+  const maxZoom = 1 + (cam.zoom/100) * 1.6;   // up to 2.6×
+  const IDLE_HOLD = 1.0;                      // seconds of stillness before pulling back
+  const DEADZONE = 0.05;                      // ignore tiny target wobble
+
+  const s = cam.samples;
+  let si = 0;
+  let holdX = 0.5, holdY = 0.5, lastActiveT = -999, lastSpread = 1;
+
+  for(let i=0;i<n;i++){
+    const t = i/FPS;
+    while(si < s.length-1 && s[si+1].t <= t) si++;
+    const smp = s[si];
+    if(smp && smp.active){
+      if(Math.abs(smp.x-holdX) > DEADZONE || Math.abs(smp.y-holdY) > DEADZONE){
+        holdX = smp.x; holdY = smp.y;
+      }
+      lastSpread = smp.spread;
+      lastActiveT = t;
+    }
+    px[i] = holdX;
+    py[i] = holdY;
+    const idle = t - lastActiveT;
+    pz[i] = idle > IDLE_HOLD
+      ? 1
+      : 1 + (1 - Math.min(1, lastSpread*1.7)) * (maxZoom - 1);
+  }
+
+  const sigma = (0.18 + (cam.smooth/100)*1.1) * FPS;
+  gaussianSmooth(px, sigma);
+  gaussianSmooth(py, sigma);
+  gaussianSmooth(pz, sigma*1.4);   // zoom eases more slowly than position
+  cam.path = {fps:FPS, n, x:px, y:py, z:pz};
+}
+
+function camAt(t){
+  const p = cam.path;
+  if(!p) return {x:0.5, y:0.5, z:1};
+  const f = Math.min(p.n-1, Math.max(0, t*p.fps));
+  const i = Math.floor(f), j = Math.min(p.n-1, i+1), a = f-i;
+  return {
+    x: p.x[i]*(1-a) + p.x[j]*a,
+    y: p.y[i]*(1-a) + p.y[j]*a,
+    z: p.z[i]*(1-a) + p.z[j]*a,
+  };
+}
+
+/* ---------- video painters ---------- */
+
+function drawVideoCover(x,y,w,h){
+  if(!state.hasVideo || video.videoWidth===0) return;
+  const vw=video.videoWidth, vh=video.videoHeight;
+  const scale = Math.max(w/vw, h/vh);
+  const dw=vw*scale, dh=vh*scale;
+  ctx.drawImage(video, x+(w-dw)/2, y+(h-dh)/2, dw, dh);
+}
+
+// Nothing is cropped. The leftover space is filled with a soft blurred blow-up of
+// the same frame, so a wide desktop recording in a tall phone screen reads as a
+// composed shot rather than a small strip floating in a black void.
+function drawVideoContain(x,y,w,h){
+  if(!state.hasVideo || video.videoWidth===0) return;
+  drawBlurFill(x,y,w,h,0.45);
+  const vw=video.videoWidth, vh=video.videoHeight;
+  const scale = Math.min(w/vw, h/vh);
+  const dw=vw*scale, dh=vh*scale;
+  const dx = x+(w-dw)/2, dy = y+(h-dh)/2;
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.45)';
+  ctx.shadowBlur = Math.max(6, w*0.03);
+  ctx.drawImage(video, dx, dy, dw, dh);
+  ctx.restore();
+}
+
+function drawVideoSmart(x,y,w,h){
+  if(!state.hasVideo || video.videoWidth===0) return;
+  const vw=video.videoWidth, vh=video.videoHeight;
+  const c = camAt(video.currentTime);
+  const destA = w/h;
+  let cw, ch;
+  if(vw/vh > destA){ ch = vh; cw = ch*destA; }   // wide source, tall target: keep full height
+  else { cw = vw; ch = cw/destA; }
+  cw = Math.min(vw, cw/c.z);
+  ch = Math.min(vh, ch/c.z);
+  let sx = c.x*vw - cw/2, sy = c.y*vh - ch/2;
+  sx = Math.max(0, Math.min(vw-cw, sx));
+  sy = Math.max(0, Math.min(vh-ch, sy));
+  ctx.drawImage(video, sx, sy, cw, ch, x, y, w, h);
+}
+
+function paintVideo(x,y,w,h){
+  if(state.fit==='smart') drawVideoSmart(x,y,w,h);
+  else if(state.fit==='contain') drawVideoContain(x,y,w,h);
+  else drawVideoCover(x,y,w,h);
+}
+
+// Blur is by far the most expensive canvas operation, and export records in real
+// time, so a slow blur means dropped frames in the finished file. Blurring a
+// thumbnail and scaling it up looks identical and costs almost nothing.
+const blurSrc = document.createElement('canvas');
+const blurOut = document.createElement('canvas');
+const blurSrcCtx = blurSrc.getContext('2d');
+const blurOutCtx = blurOut.getContext('2d');
+
+function drawBlurFill(x,y,w,h,brightness){
+  if(!state.hasVideo || video.videoWidth===0) return;
+  const bw = 96;
+  const bh = Math.max(2, Math.round(bw * video.videoHeight / video.videoWidth));
+  if(blurSrc.width !== bw || blurSrc.height !== bh){
+    blurSrc.width = blurOut.width = bw;
+    blurSrc.height = blurOut.height = bh;
+  }
+  blurSrcCtx.drawImage(video, 0, 0, bw, bh);
+  blurOutCtx.filter = `blur(5px) brightness(${brightness})`;
+  blurOutCtx.drawImage(blurSrc, 0, 0);
+  blurOutCtx.filter = 'none';
+  const scale = Math.max(w/bw, h/bh);
+  const dw = bw*scale, dh = bh*scale;
+  ctx.drawImage(blurOut, x+(w-dw)/2, y+(h-dh)/2, dw, dh);
+}
+
+/* ---------- frames ---------- */
+
+function fitFrame(aspect, extraBottomFrac, marginFrac){
+  const W = canvas.width, H = canvas.height;
+  const maxW = W*(1-marginFrac*2);
+  const maxH = H*(1-marginFrac*2);
+  let screenW = maxW;
+  let screenH = screenW/aspect;
+  let totalH = screenH*(1+extraBottomFrac);
+  if(totalH > maxH){
+    totalH = maxH;
+    screenH = totalH/(1+extraBottomFrac);
+    screenW = screenH*aspect;
+  }
+  const x = (W-screenW)/2;
+  const y = (H-totalH)/2;
+  return {x, y, w:screenW, h:screenH, totalH};
+}
+
+function getScreenRect(){
+  const W = canvas.width, H = canvas.height;
+  if(state.bg === 'photo'){
+    const s = state.photoScreen;
+    return {x:W*s.x/100, y:H*s.y/100, w:W*s.w/100, h:H*s.h/100, kind:'none', radius:s.r};
+  }
+  switch(state.frame){
+    case 'laptop': {
+      const f = fitFrame(16/10, 0.16, 0.08);
+      return {x:f.x, y:f.y, w:f.w, h:f.h, kind:'laptop'};
+    }
+    case 'desktop': {
+      const f = fitFrame(16/9, 0.20, 0.08);
+      return {x:f.x, y:f.y, w:f.w, h:f.h, kind:'desktop'};
+    }
+    case 'mobile': {
+      let fw, fh;
+      if(state.format==='portrait'){ fh = H*0.90; fw = fh*0.472; }
+      else { fh = H*0.92; fw = fh*0.472; }
+      const fx=(W-fw)/2, fy=(H-fh)/2;
+      const bez = fw*0.045;
+      return {x:fx+bez, y:fy+bez, w:fw-bez*2, h:fh-bez*2, kind:'mobile', outer:{x:fx,y:fy,w:fw,h:fh}};
+    }
+    case 'browser': {
+      const padX = W*0.08, topBar = H*0.09, padBottom = H*0.06;
+      return {x:padX, y:padX*0.6+topBar, w:W-padX*2, h:H-topBar-padBottom-padX*0.6, kind:'browser', outer:{x:padX*0.6,y:padX*0.6,w:W-padX*1.2,h:H-padX*1.2-padBottom+topBar}};
+    }
+    default:
+      return {x:0,y:0,w:W,h:H,kind:'none'};
+  }
+}
+
+function drawBackground(){
+  const W=canvas.width, H=canvas.height;
+  if(state.bg==='wallpaper'){
+    ctx.drawImage(getWallpaperCanvas(W,H), 0, 0);
+    return;
+  }
+  if(state.bg==='photo'){
+    if(state.bgImage){
+      const img = state.bgImage;
+      const scale = Math.max(W/img.width, H/img.height);
+      const dw = img.width*scale, dh = img.height*scale;
+      ctx.drawImage(img, (W-dw)/2, (H-dh)/2, dw, dh);
+    } else {
+      ctx.fillStyle = '#2b2d31';
+      ctx.fillRect(0,0,W,H);
+      ctx.fillStyle = '#9a978f';
+      ctx.font = '16px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Upload a desk or monitor photo to place the screen', W/2, H/2);
+      ctx.textAlign = 'start';
+    }
+    return;
+  }
+  if(state.bg==='solid'){
+    ctx.fillStyle = state.color;
+    ctx.fillRect(0,0,W,H);
+  } else if(state.bg==='gradient'){
+    const g = ctx.createLinearGradient(0,0,W,H);
+    g.addColorStop(0, state.color);
+    g.addColorStop(1, '#0e0f11');
+    ctx.fillStyle = g;
+    ctx.fillRect(0,0,W,H);
+  } else if(state.bg==='blur'){
+    ctx.fillStyle = '#0e0f11';
+    ctx.fillRect(0,0,W,H);
+    drawBlurFill(-40,-40,W+80,H+80,0.62);
+  }
+}
+
+function roundRect(x,y,w,h,r){
+  r = Math.max(0, Math.min(r, Math.min(w,h)/2));
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+
+function withShadow(blurPx, offsetY, fn){
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.38)';
+  ctx.shadowBlur = blurPx;
+  ctx.shadowOffsetY = offsetY;
+  fn();
+  ctx.restore();
+}
+
+// Aluminium finishes. Each frame reads its colours from here so the whole mockup
+// stays consistent when the finish is switched.
+const FINISH = {
+  black: {
+    body:'#33363b', bodyDark:'#1a1c1f', edge:'rgba(255,255,255,0.20)',
+    base:'#3a3d43', baseDark:'#1d1f22', groove:'#0d0e10',
+    phone:'#0c0d0f', phoneEdge:'rgba(255,255,255,0.16)', button:'#2a2c30',
+  },
+  silver: {
+    body:'#cdcfd4', bodyDark:'#9a9da4', edge:'rgba(255,255,255,0.85)',
+    base:'#d9dbdf', baseDark:'#a3a6ad', groove:'#6d7077',
+    phone:'#c4c7cd', phoneEdge:'rgba(255,255,255,0.9)', button:'#a8abb1',
+  },
+};
+
+// A MacBook seen head-on: thin uniform bezels with a slightly deeper chin, a dark
+// hinge line, then the front edge of the base flaring out below it with the
+// finger groove cut into the middle.
+function drawLaptopChrome(rect){
+  const f = FINISH[state.finish];
+  const bez  = rect.w*0.016;
+  const chin = rect.w*0.026;
+  const lidX = rect.x-bez, lidY = rect.y-bez;
+  const lidW = rect.w+bez*2, lidH = rect.h+bez+chin;
+  const r = lidW*0.017;
+  const cx = lidX+lidW/2;
+
+  const gap   = lidH*0.010;
+  const baseH = lidH*0.055;
+  const bTop  = lidY+lidH+gap;
+  const halfT = lidW/2, halfB = lidW*0.548;
+
+  // one soft contact shadow under the whole machine
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.5)';
+  ctx.shadowBlur = lidW*0.07;
+  ctx.shadowOffsetY = lidH*0.045;
+  ctx.fillStyle = '#000';
+  roundRect(lidX, lidY, lidW, lidH+gap+baseH, r);
+  ctx.fill();
+  ctx.restore();
+
+  // base front edge
+  const bgrad = ctx.createLinearGradient(0, bTop, 0, bTop+baseH);
+  bgrad.addColorStop(0, f.base);
+  bgrad.addColorStop(1, f.baseDark);
+  ctx.fillStyle = bgrad;
+  ctx.beginPath();
+  ctx.moveTo(cx-halfT, bTop);
+  ctx.lineTo(cx+halfT, bTop);
+  ctx.lineTo(cx+halfB, bTop+baseH*0.6);
+  ctx.quadraticCurveTo(cx+halfB, bTop+baseH, cx+halfB-baseH*0.55, bTop+baseH);
+  ctx.lineTo(cx-halfB+baseH*0.55, bTop+baseH);
+  ctx.quadraticCurveTo(cx-halfB, bTop+baseH, cx-halfB, bTop+baseH*0.6);
+  ctx.closePath();
+  ctx.fill();
+
+  // finger groove
+  const gw = lidW*0.135, gh = baseH*0.5;
+  ctx.fillStyle = f.groove;
+  ctx.beginPath();
+  ctx.moveTo(cx-gw/2, bTop+baseH*0.06);
+  ctx.quadraticCurveTo(cx, bTop+baseH*0.06+gh, cx+gw/2, bTop+baseH*0.06);
+  ctx.closePath();
+  ctx.fill();
+
+  // hinge shadow between lid and base
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.fillRect(lidX+lidW*0.015, lidY+lidH, lidW*0.97, gap*1.4);
+
+  // lid
+  const lgrad = ctx.createLinearGradient(lidX, lidY, lidX+lidW, lidY+lidH);
+  lgrad.addColorStop(0, f.body);
+  lgrad.addColorStop(1, f.bodyDark);
+  ctx.fillStyle = lgrad;
+  roundRect(lidX, lidY, lidW, lidH, r);
+  ctx.fill();
+
+  // machined edge catching the light
+  ctx.strokeStyle = f.edge;
+  ctx.lineWidth = Math.max(1, lidW*0.0016);
+  roundRect(lidX+ctx.lineWidth/2, lidY+ctx.lineWidth/2, lidW-ctx.lineWidth, lidH-ctx.lineWidth, r);
+  ctx.stroke();
+
+  // screen well behind the video
+  ctx.fillStyle = '#000';
+  roundRect(rect.x, rect.y, rect.w, rect.h, rect.w*0.006);
+  ctx.fill();
+}
+
+// The notch sits over the picture, so it is painted after the video.
+function drawLaptopOverlay(rect){
+  const bez = rect.w*0.016;
+  const nW = rect.w*0.095, nH = bez*1.15;
+  ctx.fillStyle = '#000';
+  ctx.beginPath();
+  ctx.moveTo(rect.x+(rect.w-nW)/2, rect.y);
+  ctx.lineTo(rect.x+(rect.w+nW)/2, rect.y);
+  ctx.lineTo(rect.x+(rect.w+nW)/2, rect.y+nH-nH*0.4);
+  ctx.quadraticCurveTo(rect.x+(rect.w+nW)/2, rect.y+nH, rect.x+(rect.w+nW)/2-nH*0.4, rect.y+nH);
+  ctx.lineTo(rect.x+(rect.w-nW)/2+nH*0.4, rect.y+nH);
+  ctx.quadraticCurveTo(rect.x+(rect.w-nW)/2, rect.y+nH, rect.x+(rect.w-nW)/2, rect.y+nH-nH*0.4);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawFrameChrome(rect){
+  ctx.save();
+  if(rect.kind==='laptop'){
+    drawLaptopChrome(rect);
+  } else if(rect.kind==='desktop'){
+    const fd = FINISH[state.finish];
+    const bezel = rect.w*0.02;
+    withShadow(rect.w*0.05, rect.h*0.03, ()=>{
+      const dg = ctx.createLinearGradient(rect.x, rect.y, rect.x+rect.w, rect.y+rect.h);
+      dg.addColorStop(0, fd.body);
+      dg.addColorStop(1, fd.bodyDark);
+      ctx.fillStyle = dg;
+      roundRect(rect.x-bezel, rect.y-bezel, rect.w+bezel*2, rect.h+bezel*2, 10);
+      ctx.fill();
+    });
+    const standY = rect.y+rect.h+bezel*2;
+    const neckH = rect.h*0.12, footY = standY+neckH;
+    ctx.fillStyle = fd.base;
+    ctx.fillRect(rect.x+rect.w/2-rect.w*0.015, standY, rect.w*0.03, neckH);
+    roundRect(rect.x+rect.w/2-rect.w*0.09, footY, rect.w*0.18, rect.h*0.02, 4);
+    ctx.fill();
+  } else if(rect.kind==='mobile'){
+    const fm = FINISH[state.finish];
+    const o = rect.outer;
+    withShadow(o.w*0.14, o.h*0.02, ()=>{
+      ctx.fillStyle = fm.phone;
+      roundRect(o.x, o.y, o.w, o.h, o.w*0.145);
+      ctx.fill();
+    });
+    // brushed rail
+    ctx.strokeStyle = fm.phoneEdge;
+    ctx.lineWidth = Math.max(1, o.w*0.007);
+    roundRect(o.x+o.w*0.006, o.y+o.w*0.006, o.w-o.w*0.012, o.h-o.w*0.012, o.w*0.14);
+    ctx.stroke();
+    // side buttons
+    ctx.fillStyle = fm.button;
+    roundRect(o.x-o.w*0.012, o.y+o.h*0.20, o.w*0.014, o.h*0.075, o.w*0.007); ctx.fill();
+    roundRect(o.x+o.w-o.w*0.002, o.y+o.h*0.26, o.w*0.014, o.h*0.11, o.w*0.007); ctx.fill();
+  } else if(rect.kind==='browser'){
+    const o = rect.outer;
+    const barMidY = o.y + (rect.y - o.y)/2;
+    withShadow(o.w*0.04, o.h*0.02, ()=>{
+      ctx.fillStyle = '#e7e5e0';
+      roundRect(o.x, o.y, o.w, o.h, 10);
+      ctx.fill();
+    });
+    ['#e0604f','#e0b64f','#5fae5a'].forEach((c,i)=>{
+      ctx.fillStyle=c;
+      ctx.beginPath();
+      ctx.arc(o.x+18+i*16, barMidY, 5, 0, Math.PI*2);
+      ctx.fill();
+    });
+  }
+  ctx.restore();
+}
+
+// The notch sits on top of the video, so it is painted after the screen content.
+function drawMobileOverlay(rect){
+  const o = rect.outer;
+  const pillW = o.w*0.30, pillH = o.w*0.082;
+  ctx.fillStyle = '#000';
+  roundRect(o.x+(o.w-pillW)/2, rect.y+o.w*0.035, pillW, pillH, pillH/2);
+  ctx.fill();
+}
+
+function layeredFrameRect(frame, cx, cy, targetW){
+  switch(frame){
+    case 'laptop': {
+      const aspect=16/10, extra=0.16;
+      const w=targetW, h=w/aspect, totalH=h*(1+extra);
+      return {x:cx-w/2, y:cy-totalH/2, w, h, kind:'laptop'};
+    }
+    case 'desktop': {
+      const aspect=16/9, extra=0.20;
+      const w=targetW, h=w/aspect, totalH=h*(1+extra);
+      return {x:cx-w/2, y:cy-totalH/2, w, h, kind:'desktop'};
+    }
+    case 'mobile': {
+      const outerAspect=0.472;
+      const fw=targetW, fh=fw/outerAspect;
+      const fx=cx-fw/2, fy=cy-fh/2;
+      const bez=fw*0.045;
+      return {x:fx+bez, y:fy+bez, w:fw-bez*2, h:fh-bez*2, kind:'mobile', outer:{x:fx,y:fy,w:fw,h:fh}};
+    }
+    case 'browser': {
+      const outerAspect=1.5;
+      const fw=targetW, fh=fw/outerAspect;
+      const fx=cx-fw/2, fy=cy-fh/2;
+      const padX=fw*0.05, topBar=fh*0.14, padBottom=fh*0.05;
+      return {x:fx+padX, y:fy+topBar, w:fw-padX*2, h:fh-topBar-padBottom, kind:'browser', outer:{x:fx,y:fy,w:fw,h:fh}};
+    }
+    default:
+      return {x:cx-targetW/2, y:cy-(targetW*9/16)/2, w:targetW, h:targetW*9/16, kind:'none'};
+  }
+}
+
+function paintScreen(rect){
+  ctx.save();
+  const clipR = rect.radius!==undefined
+    ? rect.radius
+    : (rect.kind==='mobile' ? rect.w*0.115 : (rect.kind==='none' ? 0 : 6));
+  roundRect(rect.x, rect.y, rect.w, rect.h, clipR);
+  ctx.clip();
+  ctx.fillStyle = '#000';
+  ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+  paintVideo(rect.x, rect.y, rect.w, rect.h);
+  if(state.glare && rect.kind !== 'none'){
+    const g = ctx.createLinearGradient(rect.x, rect.y, rect.x+rect.w*0.8, rect.y+rect.h*1.1);
+    g.addColorStop(0,    'rgba(255,255,255,0.14)');
+    g.addColorStop(0.30, 'rgba(255,255,255,0.035)');
+    g.addColorStop(0.46, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+  }
+  ctx.restore();
+  return clipR;
+}
+
+function drawLayer(layer){
+  const W=canvas.width, H=canvas.height;
+  const rect = layeredFrameRect(layer.frame, W*layer.x/100, H*layer.y/100, W*layer.scale/100);
+  if(rect.kind !== 'none') drawFrameChrome(rect);
+  paintScreen(rect);
+  if(rect.kind === 'mobile') drawMobileOverlay(rect);
+  if(rect.kind === 'laptop') drawLaptopOverlay(rect);
+}
+
+function drawCameraPath(rect){
+  if(!cam.path || !state.hasVideo) return;
+  const vw=video.videoWidth, vh=video.videoHeight;
+  const c = camAt(video.currentTime);
+  ctx.save();
+  ctx.strokeStyle = 'rgba(47,111,94,0.9)';
+  ctx.lineWidth = 2;
+  ctx.font = '12px monospace';
+  ctx.fillStyle = 'rgba(47,111,94,0.9)';
+  const bx = 14, by = 14, bw = 150, bh = 150*vh/vw;
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.fillRect(bx, by, bw, bh);
+  ctx.beginPath();
+  for(let i=0;i<cam.path.n;i+=2){
+    const X = bx + cam.path.x[i]*bw, Y = by + cam.path.y[i]*bh;
+    i===0 ? ctx.moveTo(X,Y) : ctx.lineTo(X,Y);
+  }
+  ctx.strokeStyle = 'rgba(231,240,236,0.55)';
+  ctx.stroke();
+  const destA = rect.w/rect.h;
+  let cw, ch;
+  if(vw/vh > destA){ ch = vh; cw = ch*destA; } else { cw = vw; ch = cw/destA; }
+  cw = Math.min(vw, cw/c.z); ch = Math.min(vh, ch/c.z);
+  let sx = Math.max(0, Math.min(vw-cw, c.x*vw-cw/2));
+  let sy = Math.max(0, Math.min(vh-ch, c.y*vh-ch/2));
+  ctx.strokeStyle = '#2f6f5e';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(bx + sx/vw*bw, by + sy/vh*bh, cw/vw*bw, ch/vh*bh);
+  ctx.fillStyle = '#e7f0ec';
+  ctx.fillText(`zoom ${c.z.toFixed(2)}×`, bx+6, by+bh+16);
+  ctx.restore();
+}
+
+function draw(){
+  drawBackground();
+
+  if(state.layout === 'layered'){
+    drawLayer(state.layerA);
+    if(state.layerB.enabled) drawLayer(state.layerB);
+    if(!isExporting && cam.debug && state.fit==='smart'){
+      drawCameraPath(layeredFrameRect(state.layerA.frame, 0, 0, canvas.width*state.layerA.scale/100));
+    }
+    return;
+  }
+
+  const rect = getScreenRect();
+  if(rect.kind !== 'none') drawFrameChrome(rect);
+  const clipR = paintScreen(rect);
+  if(rect.kind === 'mobile') drawMobileOverlay(rect);
+  if(rect.kind === 'laptop') drawLaptopOverlay(rect);
+
+  // Placement guide for photo mode — preview only, never recorded.
+  if(!isExporting && state.bg==='photo'){
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([7,5]);
+    roundRect(rect.x, rect.y, rect.w, rect.h, clipR);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  if(!isExporting && cam.debug && state.fit==='smart') drawCameraPath(rect);
+}
+
+let rafId=null;
+function loop(){
+  draw();
+  rafId = requestAnimationFrame(loop);
+}
+function stopLoop(){ if(rafId){ cancelAnimationFrame(rafId); rafId=null; } }
+video.addEventListener('play', ()=>{ if(!rafId) loop(); });
+video.addEventListener('pause', ()=>{ stopLoop(); draw(); });
+video.addEventListener('ended', ()=>{ stopLoop(); draw(); });
+
+/* ---------- Optional MP4 conversion ---------- */
+const convertBtn = document.getElementById('convertBtn');
+const dlLinkMp4 = document.getElementById('dlLinkMp4');
+let ffmpegInstance = null;
+
+function showConvertButton(webmBlob){
+  convertBtn.style.display = 'block';
+  convertBtn.textContent = 'Convert to MP4';
+  convertBtn.disabled = false;
+  convertBtn.onclick = ()=>convertToMp4(webmBlob);
+}
+
+async function convertToMp4(webmBlob){
+  convertBtn.disabled = true;
+  convertBtn.textContent = 'Loading converter…';
+  try{
+    if(!ffmpegInstance){
+      const { FFmpeg } = await import('https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js');
+      const { fetchFile, toBlobURL } = await import('https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js');
+      const ffmpeg = new FFmpeg();
+      const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
+      convertBtn.textContent = 'Downloading converter (~30MB, one-time)…';
+      await ffmpeg.load({
+        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+      });
+      ffmpegInstance = { ffmpeg, fetchFile };
+    }
+    convertBtn.textContent = 'Converting…';
+    const { ffmpeg, fetchFile } = ffmpegInstance;
+    await ffmpeg.writeFile('in.webm', await fetchFile(webmBlob));
+    await ffmpeg.exec(['-i','in.webm','-c:v','libx264','-preset','fast','-crf','20','-pix_fmt','yuv420p','-c:a','aac','out.mp4']);
+    const data = await ffmpeg.readFile('out.mp4');
+    const mp4Blob = new Blob([data.buffer], {type:'video/mp4'});
+    const url = URL.createObjectURL(mp4Blob);
+    dlLinkMp4.href = url;
+    dlLinkMp4.download = `mockup-${state.frame}-${state.format}.mp4`;
+    dlLinkMp4.click();
+    setTimeout(()=>URL.revokeObjectURL(url), 30000);
+    convertBtn.textContent = 'MP4 downloaded';
+  } catch(err){
+    console.error(err);
+    convertBtn.textContent = 'Conversion failed. Try again.';
+    convertBtn.disabled = false;
+  }
+}
+
+/* ---------- Export ---------- */
+exportBtn.addEventListener('click', async ()=>{
+  if(!state.hasVideo || cam.analyzing) return;
+  exportBtn.disabled = true;
+  convertBtn.style.display = 'none';
+  statusText.textContent = 'Recording…';
+  progressBar.style.width='0%';
+  isExporting = true;
+
+  video.currentTime = 0;
+  video.playbackRate = 1;
+  video.muted = false;
+  try { await video.play(); }
+  catch(e){
+    statusText.textContent = 'Playback was blocked. Press play once, then export.';
+    isExporting = false;
+    exportBtn.disabled = false;
+    return;
+  }
+  playBtn.textContent = '❚❚';
+
+  // Capture after playback starts — Chrome hands back zero audio tracks if the
+  // stream is grabbed before the element has ever played.
+  const canvasStream = canvas.captureStream(30);
+  let audioTracks = [];
+  try{
+    const vidStream = video.captureStream ? video.captureStream() : video.mozCaptureStream();
+    audioTracks = vidStream.getAudioTracks();
+  } catch(e){ /* silent recording */ }
+
+  const combined = new MediaStream([...canvasStream.getVideoTracks(), ...audioTracks]);
+
+  const mp4Candidates = ['video/mp4;codecs=avc1,mp4a.40.2','video/mp4;codecs=h264,aac','video/mp4'];
+  const webmCandidates = ['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
+  let mimeType = mp4Candidates.find(t=>MediaRecorder.isTypeSupported(t));
+  const isNativeMp4 = !!mimeType;
+  if(!mimeType) mimeType = webmCandidates.find(t=>MediaRecorder.isTypeSupported(t)) || 'video/webm';
+
+  const recorder = new MediaRecorder(combined, {mimeType, videoBitsPerSecond: 8_000_000});
+  const chunks = [];
+  recorder.ondataavailable = e=>{ if(e.data.size>0) chunks.push(e.data); };
+
+  recorder.onstop = ()=>{
+    isExporting = false;
+    const outType = isNativeMp4 ? 'video/mp4' : 'video/webm';
+    const ext = isNativeMp4 ? 'mp4' : 'webm';
+    const blob = new Blob(chunks, {type:outType});
+    const url = URL.createObjectURL(blob);
+    dlLink.href = url;
+    dlLink.download = `mockup-${state.frame}-${state.format}.${ext}`;
+    dlLink.click();
+    setTimeout(()=>URL.revokeObjectURL(url), 30000);
+    exportBtn.disabled = false;
+    progressBar.style.width='100%';
+    if(isNativeMp4){
+      statusText.textContent = 'Done. Saved as .mp4';
+    } else {
+      statusText.textContent = 'Saved as .webm — this browser can\'t record MP4 directly.';
+      showConvertButton(blob);
+    }
+    draw();
+  };
+
+  recorder.start();
+
+  const dur = video.duration;
+  const tick = setInterval(()=>{
+    progressBar.style.width = Math.min(100,(video.currentTime/dur*100))+'%';
+  }, 150);
+
+  video.addEventListener('ended', function onEnd(){
+    clearInterval(tick);
+    recorder.stop();
+    video.muted = true;
+    playBtn.textContent = '▶';
+  }, {once:true});
+});
+
+draw();
+</script>
+</body>
+</html>
