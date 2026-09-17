@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mockup Studio — ModDesignWorks</title>
+<title>Mockup Studio — Modupe Laosun</title>
 <style>
   :root{
     --ink:#16181d;
@@ -19,10 +19,14 @@
   html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);
     font-family: -apple-system, 'Inter', 'Segoe UI', Helvetica, Arial, sans-serif;}
   .wrap{max-width:1180px;margin:0 auto;padding:28px 20px 60px;}
-  header{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:8px;}
-  header h1{font-size:19px;margin:0;letter-spacing:-0.01em;}
+  header{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:10px;}
+  header h1{font-size:19px;margin:0 0 3px;letter-spacing:-0.01em;}
   header h1 span{color:var(--accent);}
   header p{margin:0;font-size:12.5px;color:#6b6f76;font-family:var(--mono);}
+  header .by{font-family:inherit;text-align:right;}
+  header .by strong{color:var(--ink);font-weight:600;}
+  header .by a{color:var(--accent);text-decoration:none;}
+  header .by a:hover{text-decoration:underline;}
 
   .layout{display:grid;grid-template-columns:300px 1fr;gap:20px;}
   @media (max-width:860px){.layout{grid-template-columns:1fr;}}
@@ -84,8 +88,12 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>Mockup<span>Studio</span></h1>
-    <p>screen recording → device frame → export</p>
+    <div>
+      <h1>Mockup<span>Studio</span></h1>
+      <p>screen recording → device frame → export</p>
+    </div>
+    <p class="by">Built by <strong>Modupe Laosun</strong><br>
+      <a href="mailto:laosunmodupe@gmail.com?subject=Mockup%20Studio%20feedback">laosunmodupe@gmail.com</a></p>
   </header>
 
   <div class="layout">
@@ -124,6 +132,7 @@
             <button data-frame="mobile">Mobile</button>
             <button data-frame="browser">Browser</button>
           </div>
+          <div class="row" style="margin-top:10px;margin-bottom:0;"><span>Match screen to my recording</span><input type="checkbox" id="matchChk" checked></div>
         </fieldset>
         <fieldset id="finishFieldset">
           <legend>Finish</legend>
@@ -250,6 +259,7 @@ const state = {
   wallpaper: 'aurora',
   wpDim: 100,
   finish: 'black',
+  matchAspect: true,
   glare: false,
   color: '#1f2430',
   hasVideo: false,
@@ -440,6 +450,10 @@ wireSeg('fitSeg','fit', ()=>{
   if(smart && state.hasVideo && !cam.samples && !cam.analyzing) analyzeMotion();
 });
 wireSeg('finishSeg','finish');
+document.getElementById('matchChk').addEventListener('change', e=>{
+  state.matchAspect = e.target.checked;
+  draw();
+});
 document.getElementById('glareChk').addEventListener('change', e=>{
   state.glare = e.target.checked;
   draw();
@@ -1007,6 +1021,15 @@ function fitFrame(aspect, extraBottomFrac, marginFrac){
   return {x, y, w:screenW, h:screenH, totalH};
 }
 
+// A 16:9 recording forced into a 16:10 laptop screen has to either crop the sides
+// or sit in letterbox bands. Neither is acceptable, so the screen itself takes the
+// shape of the recording. Real laptops ship in 16:9 and 16:10 both, so this stays
+// believable; it's only clamped to stop an odd recording producing a silly device.
+function srcAspect(fallback){
+  if(!state.matchAspect || !state.hasVideo || !video.videoWidth) return fallback;
+  return Math.max(1.15, Math.min(2.6, video.videoWidth/video.videoHeight));
+}
+
 function getScreenRect(){
   const W = canvas.width, H = canvas.height;
   if(state.bg === 'photo'){
@@ -1015,11 +1038,11 @@ function getScreenRect(){
   }
   switch(state.frame){
     case 'laptop': {
-      const f = fitFrame(16/10, 0.16, 0.08);
+      const f = fitFrame(srcAspect(16/10), 0.17, 0.08);
       return {x:f.x, y:f.y, w:f.w, h:f.h, kind:'laptop'};
     }
     case 'desktop': {
-      const f = fitFrame(16/9, 0.20, 0.08);
+      const f = fitFrame(srcAspect(16/9), 0.20, 0.08);
       return {x:f.x, y:f.y, w:f.w, h:f.h, kind:'desktop'};
     }
     case 'mobile': {
@@ -1031,8 +1054,17 @@ function getScreenRect(){
       return {x:fx+bez, y:fy+bez, w:fw-bez*2, h:fh-bez*2, kind:'mobile', outer:{x:fx,y:fy,w:fw,h:fh}};
     }
     case 'browser': {
-      const padX = W*0.08, topBar = H*0.09, padBottom = H*0.06;
-      return {x:padX, y:padX*0.6+topBar, w:W-padX*2, h:H-topBar-padBottom-padX*0.6, kind:'browser', outer:{x:padX*0.6,y:padX*0.6,w:W-padX*1.2,h:H-padX*1.2-padBottom+topBar}};
+      // The window is built outward from the content area rather than inward from
+      // the canvas, so the page fills it exactly whatever shape the recording is.
+      const a = srcAspect(16/10);
+      const marg = 0.07, barFrac = 0.085;
+      const maxW = W*(1-marg*2), maxH = H*(1-marg*2);
+      let sw = maxW, sh = sw/a;
+      let totalH = sh*(1+barFrac);
+      if(totalH > maxH){ totalH = maxH; sh = totalH/(1+barFrac); sw = sh*a; }
+      const bar = sh*barFrac;
+      const x = (W-sw)/2, y = (H-totalH)/2 + bar;
+      return {x, y, w:sw, h:sh, kind:'browser', outer:{x, y:y-bar, w:sw, h:sh+bar}};
     }
     default:
       return {x:0,y:0,w:W,h:H,kind:'none'};
@@ -1272,12 +1304,12 @@ function drawMobileOverlay(rect){
 function layeredFrameRect(frame, cx, cy, targetW){
   switch(frame){
     case 'laptop': {
-      const aspect=16/10, extra=0.16;
+      const aspect=srcAspect(16/10), extra=0.17;
       const w=targetW, h=w/aspect, totalH=h*(1+extra);
       return {x:cx-w/2, y:cy-totalH/2, w, h, kind:'laptop'};
     }
     case 'desktop': {
-      const aspect=16/9, extra=0.20;
+      const aspect=srcAspect(16/9), extra=0.20;
       const w=targetW, h=w/aspect, totalH=h*(1+extra);
       return {x:cx-w/2, y:cy-totalH/2, w, h, kind:'desktop'};
     }
@@ -1289,11 +1321,10 @@ function layeredFrameRect(frame, cx, cy, targetW){
       return {x:fx+bez, y:fy+bez, w:fw-bez*2, h:fh-bez*2, kind:'mobile', outer:{x:fx,y:fy,w:fw,h:fh}};
     }
     case 'browser': {
-      const outerAspect=1.5;
-      const fw=targetW, fh=fw/outerAspect;
+      const a = srcAspect(16/10), barFrac = 0.085;
+      const fw=targetW, sh=fw/a, fh=sh*(1+barFrac), bar=sh*barFrac;
       const fx=cx-fw/2, fy=cy-fh/2;
-      const padX=fw*0.05, topBar=fh*0.14, padBottom=fh*0.05;
-      return {x:fx+padX, y:fy+topBar, w:fw-padX*2, h:fh-topBar-padBottom, kind:'browser', outer:{x:fx,y:fy,w:fw,h:fh}};
+      return {x:fx, y:fy+bar, w:fw, h:sh, kind:'browser', outer:{x:fx,y:fy,w:fw,h:fh}};
     }
     default:
       return {x:cx-targetW/2, y:cy-(targetW*9/16)/2, w:targetW, h:targetW*9/16, kind:'none'};
