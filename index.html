@@ -666,7 +666,13 @@ document.getElementById('camDebug').addEventListener('change', e=>{
 analyzeBtn.addEventListener('click', ()=>analyzeMotion());
 
 const ANALYZE_RATE = 8;      // playback speed used during the scan pass
-const ANALYZE_W = 64;        // scan resolution — plenty for finding activity
+// A cursor is only ~20px wide. Scanning at 64px meant it shrank below one pixel
+// and disappeared, leaving page scrolling as the only thing the detector could
+// see — and a full-page scroll means "everything moved", which reads as "don't
+// zoom". 192 is wide enough for the cursor to survive.
+const ANALYZE_W = 192;
+const BLOCK = 12;            // diff is pooled into blocks of this many pixels
+const DIFF_THRESHOLD = 22;   // downscaling softens edges, so this is generous
 
 async function analyzeMotion(){
   if(!state.hasVideo || cam.analyzing) return;
@@ -684,41 +690,63 @@ async function analyzeMotion(){
 
   const AW = ANALYZE_W;
   const AH = Math.max(4, Math.round(AW * video.videoHeight / video.videoWidth));
+  const COLS = Math.ceil(AW/BLOCK), ROWS = Math.ceil(AH/BLOCK);
+  const NBLOCKS = COLS*ROWS;
   const ac = document.createElement('canvas');
   ac.width = AW; ac.height = AH;
   const actx = ac.getContext('2d', {willReadFrequently:true});
 
   const samples = [];
   let prev = null;
+  const energy = new Float32Array(NBLOCKS);
+  const order = new Int32Array(NBLOCKS);
 
+  // Pools the frame difference into blocks and asks how few blocks it takes to
+  // account for most of the movement. A click or a cursor lights up two or three
+  // blocks — that's something to zoom into. A page scroll lights up nearly all of
+  // them — that's a whole-screen event, so hold still and stay wide.
   function takeSample(t){
     actx.drawImage(video, 0, 0, AW, AH);
     let cur;
     try { cur = actx.getImageData(0,0,AW,AH).data; }
-    catch(e){ return; }  // tainted canvas — shouldn't happen with object URLs
+    catch(e){ return; }
     if(prev){
-      let sx=0, sy=0, weight=0, moved=0;
-      let minx=AW, maxx=-1, miny=AH, maxy=-1;
-      for(let p=0, i=0; p<AW*AH; p++, i+=4){
-        const d = Math.abs(cur[i]-prev[i]) + Math.abs(cur[i+1]-prev[i+1]) + Math.abs(cur[i+2]-prev[i+2]);
-        if(d > 45){
-          const x = p % AW, y = (p/AW)|0;
-          sx += x*d; sy += y*d; weight += d; moved++;
-          if(x<minx)minx=x; if(x>maxx)maxx=x;
-          if(y<miny)miny=y; if(y>maxy)maxy=y;
+      energy.fill(0);
+      let total = 0, moved = 0;
+      for(let y=0; y<AH; y++){
+        const brow = ((y/BLOCK)|0)*COLS;
+        for(let x=0; x<AW; x++){
+          const i = (y*AW + x)*4;
+          const d = Math.abs(cur[i]-prev[i]) + Math.abs(cur[i+1]-prev[i+1]) + Math.abs(cur[i+2]-prev[i+2]);
+          if(d > DIFF_THRESHOLD){
+            energy[brow + ((x/BLOCK)|0)] += d;
+            total += d;
+            moved++;
+          }
         }
       }
-      const frac = moved/(AW*AH);
-      if(weight > 0 && frac > 0.002){
+      if(total > 0 && moved/(AW*AH) > 0.0004){
+        for(let i=0;i<NBLOCKS;i++) order[i] = i;
+        const arr = Array.from(order).sort((a,b)=>energy[b]-energy[a]);
+        let cum = 0, k = 0, sx = 0, sy = 0, sw = 0;
+        while(k < arr.length && cum < total*0.65 && energy[arr[k]] > 0){
+          const b = arr[k], e = energy[b];
+          cum += e;
+          sx += ((b%COLS)+0.5)*e;
+          sy += (((b/COLS)|0)+0.5)*e;
+          sw += e;
+          k++;
+        }
         samples.push({
           t,
-          x: (sx/weight)/AW,
-          y: (sy/weight)/AH,
-          spread: Math.max((maxx-minx+1)/AW, (maxy-miny+1)/AH),
+          x: (sx/sw)/COLS,
+          y: (sy/sw)/ROWS,
+          tight: 1 - k/NBLOCKS,
+          global: moved/(AW*AH) > 0.28,
           active: true,
         });
       } else {
-        samples.push({t, x:null, y:null, spread:1, active:false});
+        samples.push({t, x:null, y:null, tight:0, global:false, active:false});
       }
     }
     prev = cur;
@@ -774,15 +802,16 @@ async function analyzeMotion(){
   exportBtn.disabled = false;
   camBar.style.width = '100%';
 
-  const activeCount = samples.filter(s=>s.active).length;
+  const local = samples.filter(s=>s.active && !s.global).length;
+  const scroll = samples.filter(s=>s.global).length;
   if(samples.length < 4){
     camStatus.textContent = 'Scan found too few frames. The camera will stay centred.';
     cam.samples = null;
-  } else if(activeCount < samples.length*0.02){
-    camStatus.textContent = 'Almost nothing moves in this recording, so the camera will stay still.';
+  } else if(local < 6){
+    camStatus.textContent = 'Only whole-screen changes here (scrolling, transitions), so the camera stays wide. It zooms on cursor movement and clicks.';
   } else {
     analyzeBtn.textContent = 'Scan again';
-    camStatus.textContent = `Tracked ${activeCount} moments of activity. Adjust zoom and smoothness freely — no rescan needed.`;
+    camStatus.textContent = `${local} moments to zoom into, ${scroll} scrolls to stay wide for. Drag zoom and smoothness freely — no rescan needed.`;
   }
 
   buildPath();
@@ -812,44 +841,64 @@ function gaussianSmooth(arr, sigma){
   }
 }
 
+// Stretches each zoom-in outward in time. Without this the camera darts in and
+// out on every brief flurry of activity; holding the peak across a window turns
+// a cluster of small moments into one deliberate move.
+function dilate(arr, radius){
+  const src = Float32Array.from(arr);
+  const n = arr.length;
+  for(let i=0;i<n;i++){
+    let m = -Infinity;
+    const lo = Math.max(0,i-radius), hi = Math.min(n-1,i+radius);
+    for(let j=lo;j<=hi;j++) if(src[j]>m) m=src[j];
+    arr[i] = m;
+  }
+}
+
 function buildPath(){
   if(!cam.samples || !cam.samples.length || !video.duration){ cam.path = null; return; }
   const FPS = 30;
-  const dur = video.duration;
-  const n = Math.max(2, Math.ceil(dur*FPS)+1);
+  const n = Math.max(2, Math.ceil(video.duration*FPS)+1);
   const px = new Float32Array(n), py = new Float32Array(n), pz = new Float32Array(n);
 
-  const maxZoom = 1 + (cam.zoom/100) * 1.6;   // up to 2.6×
-  const IDLE_HOLD = 1.0;                      // seconds of stillness before pulling back
-  const DEADZONE = 0.05;                      // ignore tiny target wobble
+  const maxZoom  = 1 + (cam.zoom/100) * 1.8;
+  const IDLE_HOLD = 2.5;    // stay on the spot through a pause before pulling back
+  const DEADZONE  = 0.035;
 
   const s = cam.samples;
   let si = 0;
-  let holdX = 0.5, holdY = 0.5, lastActiveT = -999, lastSpread = 1;
+  let holdX = 0.5, holdY = 0.5, holdZ = 1, lastActiveT = -999;
 
   for(let i=0;i<n;i++){
     const t = i/FPS;
     while(si < s.length-1 && s[si+1].t <= t) si++;
     const smp = s[si];
-    if(smp && smp.active){
+
+    if(smp && smp.active && !smp.global){
+      // Localised activity — a cursor, a click, a menu opening. Go to it.
       if(Math.abs(smp.x-holdX) > DEADZONE || Math.abs(smp.y-holdY) > DEADZONE){
         holdX = smp.x; holdY = smp.y;
       }
-      lastSpread = smp.spread;
+      const f = Math.max(0, Math.min(1, (smp.tight - 0.72)/0.24));
+      holdZ = 1 + f*(maxZoom-1);
       lastActiveT = t;
+    } else if(smp && smp.global){
+      // Whole screen changed — a scroll or a page transition. Stay put, go wide.
+      holdZ = 1;
+      lastActiveT = t;
+    } else if(t - lastActiveT > IDLE_HOLD){
+      holdZ = 1;
     }
-    px[i] = holdX;
-    py[i] = holdY;
-    const idle = t - lastActiveT;
-    pz[i] = idle > IDLE_HOLD
-      ? 1
-      : 1 + (1 - Math.min(1, lastSpread*1.7)) * (maxZoom - 1);
+
+    px[i] = holdX; py[i] = holdY; pz[i] = holdZ;
   }
+
+  dilate(pz, Math.round(FPS*0.45));
 
   const sigma = (0.18 + (cam.smooth/100)*1.1) * FPS;
   gaussianSmooth(px, sigma);
   gaussianSmooth(py, sigma);
-  gaussianSmooth(pz, sigma*1.4);   // zoom eases more slowly than position
+  gaussianSmooth(pz, sigma*1.25);
   cam.path = {fps:FPS, n, x:px, y:py, z:pz};
 }
 
