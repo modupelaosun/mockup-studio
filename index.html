@@ -1050,10 +1050,9 @@ function dilate(arr, radius){
   }
 }
 
-// Builds the track from the points the person placed. Each point is held for a
-// window around its own time and the gaps drop back to a wide shot, then the
-// whole thing is smoothed — so the camera eases toward a point before it arrives
-// and eases away after, instead of snapping between positions.
+// Builds the track from the points the person placed: hold at full zoom on each
+// point, ease back out, and sit at exactly 1.0 — the whole uncropped screen —
+// everywhere in between.
 function buildManualPath(){
   const FPS = 30;
   if(!cam.points.length || !video.duration){ cam.path = null; return; }
@@ -1061,7 +1060,8 @@ function buildManualPath(){
   const px = new Float32Array(n), py = new Float32Array(n), pz = new Float32Array(n);
 
   const maxZoom = 1 + (cam.zoom/100) * 1.8;
-  const HOLD = 1.6;   // seconds either side of a point that stay zoomed in
+  const HOLD = 1.2;                               // seconds held at full zoom on a point
+  const RAMP = 0.45 + (cam.smooth/100) * 1.15;    // seconds to travel between wide and close
 
   let holdX = cam.points[0].x, holdY = cam.points[0].y;
   for(let i=0;i<n;i++){
@@ -1074,13 +1074,19 @@ function buildManualPath(){
     if(best){ holdX = best.x; holdY = best.y; }
     px[i] = holdX;
     py[i] = holdY;
-    pz[i] = bestDist <= HOLD ? maxZoom : 1;
+
+    // The zoom curve is shaped directly rather than blurred into shape. Gaussian
+    // smoothing spread each peak outward and its tail never decayed to zero, so
+    // the camera rested at ~1.09x and the screen stayed slightly cropped — which
+    // also left it room to drift sideways between points. A smoothstep ramp is
+    // just as soft and lands on exactly 1.0.
+    const s = Math.max(0, Math.min(1, 1 - (bestDist - HOLD)/RAMP));
+    pz[i] = 1 + (s*s*(3 - 2*s)) * (maxZoom - 1);
   }
 
   const sigma = (0.18 + (cam.smooth/100)*1.1) * FPS;
   gaussianSmooth(px, sigma);
   gaussianSmooth(py, sigma);
-  gaussianSmooth(pz, sigma*1.25);
   cam.path = {fps:FPS, n, x:px, y:py, z:pz};
 }
 
@@ -1129,7 +1135,20 @@ function buildPath(){
   gaussianSmooth(px, sigma);
   gaussianSmooth(py, sigma);
   gaussianSmooth(pz, sigma*1.25);
+  settleZoom(pz, maxZoom);
   cam.path = {fps:FPS, n, x:px, y:py, z:pz};
+}
+
+// Smoothing leaves a low tail behind every zoom peak, so the quiet stretches come
+// out at ~1.09x instead of 1.0 and the screen is never shown whole. Anything
+// within the deadzone is pulled down to exactly 1.0 and the rest is rescaled, so
+// the peaks still reach full zoom and nothing steps at the boundary.
+function settleZoom(pz, maxZoom){
+  const DEAD = 0.12;
+  const span = Math.max(1e-6, (maxZoom - 1) - DEAD);
+  for(let i=0;i<pz.length;i++){
+    pz[i] = 1 + Math.max(0, (pz[i] - 1) - DEAD) * (maxZoom - 1) / span;
+  }
 }
 
 function camAt(t){
