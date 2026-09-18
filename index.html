@@ -64,6 +64,17 @@
   .wpgrid figcaption{font-size:10px;color:#6b6f76;text-align:center;margin-top:3px;}
   .wpgrid figure.active figcaption{color:var(--ink);font-weight:600;}
 
+  .points{margin-bottom:10px;}
+  .points .empty{font-size:11.5px;color:#9a978f;margin:0 0 10px;line-height:1.5;}
+  .pt{display:flex;align-items:center;justify-content:space-between;gap:8px;
+    border:1px solid var(--line);border-radius:7px;padding:6px 8px;margin-bottom:5px;font-size:12px;}
+  .pt b{font-family:var(--mono);font-weight:500;}
+  .pt span{color:#6b6f76;flex:1;}
+  .pt button{border:none;background:none;color:var(--warn);cursor:pointer;font-size:15px;line-height:1;padding:2px 4px;border-radius:4px;}
+  .pt button:hover{background:#f7e9e4;}
+  .pt button:focus-visible{outline:2px solid var(--accent);outline-offset:1px;}
+  canvas.pointing{cursor:crosshair;}
+
   .stage{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;display:flex;flex-direction:column;align-items:center;gap:14px;min-height:520px;justify-content:center;}
   canvas{max-width:100%;max-height:70vh;background:#111;border-radius:6px;}
   .stage-empty{color:#9a978f;font-size:13px;text-align:center;font-family:var(--mono);line-height:1.7;}
@@ -133,6 +144,7 @@
             <button data-frame="browser">Browser</button>
           </div>
           <div class="row" style="margin-top:10px;margin-bottom:0;"><span>Match screen to my recording</span><input type="checkbox" id="matchChk" checked></div>
+          <div class="row" style="margin-top:10px;margin-bottom:0;"><span>Device size</span><input type="range" id="deviceSize" min="0" max="100" value="45"></div>
         </fieldset>
         <fieldset id="finishFieldset">
           <legend>Finish</legend>
@@ -154,13 +166,30 @@
 
       <div class="panel" id="camPanel" style="display:none;">
         <h3>Follow the action</h3>
-        <p class="hint">Scans the recording for where things are moving, then pans and zooms to stay on it. Your full picture height is kept, so nothing is cut off the top or bottom — the camera moves sideways instead.</p>
-        <div class="row"><span>Zoom strength</span><input type="range" id="camZoom" min="0" max="100" value="55"></div>
+        <fieldset>
+          <legend>Where should the camera look?</legend>
+          <div class="seg" id="camModeSeg">
+            <button data-cammode="manual" class="active">I'll point at it</button>
+            <button data-cammode="auto">Find it for me</button>
+          </div>
+        </fieldset>
+
+        <div id="manualCam">
+          <p class="hint">Play to the moment that matters, pause, then click that spot in the preview. The camera moves there and zooms in. Add as many as you like — it eases between them and pulls back out in the gaps.</p>
+          <div id="pointList" class="points"><p class="empty">No camera points yet. Pause and click the preview to add one.</p></div>
+          <button class="ghost-btn" id="clearPointsBtn" disabled>Remove all points</button>
+        </div>
+
+        <div id="autoCam" style="display:none;">
+          <p class="hint">Scans for where the picture changes and zooms there. It follows movement, not your cursor, so on a page that scrolls it may not land where you expect. Pointing at it yourself is more reliable.</p>
+          <button class="ghost-btn" id="analyzeBtn" disabled>Scan recording</button>
+          <div class="progress"><i id="camBar"></i></div>
+          <div class="status" id="camStatus"></div>
+        </div>
+
+        <div class="row" style="margin-top:14px;"><span>Zoom strength</span><input type="range" id="camZoom" min="0" max="100" value="55"></div>
         <div class="row"><span>Smoothness</span><input type="range" id="camSmooth" min="0" max="100" value="60"></div>
         <div class="row"><span>Show camera path</span><input type="checkbox" id="camDebug"></div>
-        <button class="ghost-btn" id="analyzeBtn" disabled>Scan recording</button>
-        <div class="progress"><i id="camBar"></i></div>
-        <div class="status" id="camStatus"></div>
       </div>
 
       <div class="panel" id="layeredPanel" style="display:none;">
@@ -200,7 +229,7 @@
             <button data-bg="solid">Solid</button>
             <button data-bg="gradient">Gradient</button>
             <button data-bg="blur">Blurred video</button>
-            <button data-bg="photo">Real photo (desk/monitor)</button>
+            <button data-bg="photo">My image</button>
           </div>
         </fieldset>
         <div id="wallpaperControls">
@@ -212,20 +241,26 @@
           <div class="swatches" id="swatches"></div>
         </div>
         <div id="photoControls" style="display:none;">
-          <label class="drop" id="photoDrop" style="padding:14px;font-size:12px;margin-bottom:12px;">
-            Click to upload a desk / monitor photo
+          <label class="drop" id="photoDrop" style="padding:16px;font-size:12.5px;margin-bottom:12px;">
+            Click or drop any photo to use as the background
             <input type="file" id="photoInput" accept="image/*">
           </label>
-          <div class="row"><span>Screen X</span><input type="range" id="scrX" min="0" max="100" value="30"></div>
-          <div class="row"><span>Screen Y</span><input type="range" id="scrY" min="0" max="100" value="20"></div>
-          <div class="row"><span>Screen width</span><input type="range" id="scrW" min="5" max="100" value="40"></div>
-          <div class="row"><span>Screen height</span><input type="range" id="scrH" min="5" max="100" value="30"></div>
-          <div class="row"><span>Corner rounding</span><input type="range" id="scrR" min="0" max="40" value="2"></div>
+          <div class="row"><span>Brightness</span><input type="range" id="imgDim" min="35" max="130" value="100"></div>
+          <div class="row"><span>Blur</span><input type="range" id="imgBlur" min="0" max="100" value="0"></div>
         </div>
       </div>
 
       <div class="panel">
         <h3>Export</h3>
+        <fieldset>
+          <legend>Resolution</legend>
+          <div class="seg cols3" id="qualitySeg">
+            <button data-quality="720">720p</button>
+            <button data-quality="1080" class="active">1080p</button>
+            <button data-quality="1440">1440p</button>
+          </div>
+          <p class="hint" style="margin:8px 0 0;">Pick a resolution above your recording's own. Below it, small text turns to mush.</p>
+        </fieldset>
         <button class="export-btn" id="exportBtn" disabled>Load a video first</button>
         <div class="progress"><i id="progressBar"></i></div>
         <div class="status" id="statusText"></div>
@@ -260,11 +295,14 @@ const state = {
   wpDim: 100,
   finish: 'black',
   matchAspect: true,
+  quality: '1080',
+  deviceSize: 45,
   glare: false,
   color: '#1f2430',
   hasVideo: false,
   bgImage: null,
-  photoScreen: {x:30,y:20,w:40,h:30,r:2},
+  imgDim: 100,
+  imgBlur: 0,
   layout: 'single',
   layerA: {frame:'laptop', x:50, y:52, scale:70},
   layerB: {enabled:true, frame:'mobile', x:76, y:80, scale:30},
@@ -447,9 +485,16 @@ wireSeg('frameSeg','frame');
 wireSeg('fitSeg','fit', ()=>{
   const smart = state.fit === 'smart';
   document.getElementById('camPanel').style.display = smart ? 'block' : 'none';
-  if(smart && state.hasVideo && !cam.samples && !cam.analyzing) analyzeMotion();
+  // Only the auto mode needs a scan; manual waits for the person to click.
+  if(smart && cam.mode === 'auto' && state.hasVideo && !cam.samples && !cam.analyzing) analyzeMotion();
+  updateCanvasCursor();
 });
 wireSeg('finishSeg','finish');
+wireSeg('qualitySeg','quality', ()=>{ resetCamera(); });
+document.getElementById('deviceSize').addEventListener('input', e=>{
+  state.deviceSize = +e.target.value;
+  draw();
+});
 document.getElementById('matchChk').addEventListener('change', e=>{
   state.matchAspect = e.target.checked;
   draw();
@@ -509,23 +554,37 @@ document.getElementById('layerBEnabled').addEventListener('change', e=>{
 });
 
 let photoObjectUrl = null;
+const photoDrop = document.getElementById('photoDrop');
 const photoInput = document.getElementById('photoInput');
-photoInput.addEventListener('change', e=>{
-  const f = e.target.files[0];
-  if(!f) return;
+
+function loadBgImage(f){
+  if(!f || !f.type.startsWith('image/')) return;
   const img = new Image();
-  img.onload = ()=>{ state.bgImage = img; draw(); };
+  img.onload = ()=>{
+    state.bgImage = img;
+    photoDrop.classList.add('has-file');
+    photoDrop.firstChild.textContent = `Using ${f.name} — click to replace`;
+    draw();
+  };
   if(photoObjectUrl) URL.revokeObjectURL(photoObjectUrl);
   photoObjectUrl = URL.createObjectURL(f);
   img.src = photoObjectUrl;
+}
+
+photoInput.addEventListener('change', e=>loadBgImage(e.target.files[0]));
+['dragover','dragenter'].forEach(ev=>photoDrop.addEventListener(ev, e=>e.preventDefault()));
+photoDrop.addEventListener('drop', e=>{
+  e.preventDefault();
+  loadBgImage(e.dataTransfer.files[0]);
 });
 
-['scrX','scrY','scrW','scrH','scrR'].forEach(id=>{
-  document.getElementById(id).addEventListener('input', e=>{
-    const key = {scrX:'x',scrY:'y',scrW:'w',scrH:'h',scrR:'r'}[id];
-    state.photoScreen[key] = +e.target.value;
-    draw();
-  });
+document.getElementById('imgDim').addEventListener('input', e=>{
+  state.imgDim = +e.target.value;
+  draw();
+});
+document.getElementById('imgBlur').addEventListener('input', e=>{
+  state.imgBlur = +e.target.value;
+  draw();
 });
 
 const dropZone = document.getElementById('dropZone');
@@ -595,7 +654,8 @@ function loadFile(file){
     draw();
     seek.max = Math.floor(video.duration*10);
     timeLabel.textContent = `0:00 / ${fmt(video.duration)}`;
-    if(state.fit === 'smart' && !cam.samples) analyzeMotion();
+    updateCanvasCursor();
+    if(state.fit === 'smart' && cam.mode === 'auto' && !cam.samples) analyzeMotion();
   };
   video.onerror = ()=>{
     const err = video.error;
@@ -634,9 +694,24 @@ video.addEventListener('timeupdate', ()=>{
 });
 seek.addEventListener('input', ()=>{ if(!cam.analyzing){ video.currentTime = seek.value/10; draw(); } });
 
+// The frame body and margins eat into the canvas, so a 1280-wide canvas left a
+// 1920-wide recording rendered at roughly 900px — half size, and small text in the
+// recording turned to mush. Rendering the canvas larger gives the screen area back
+// its pixels. Everything else is measured as a fraction of canvas width, so nothing
+// needs adjusting when this changes.
+const QUALITY = {'720':720, '1080':1080, '1440':1440};
 function sizeCanvas(){
-  if(state.format === 'portrait'){ canvas.width=720; canvas.height=1280; }
-  else { canvas.width=1280; canvas.height=720; }
+  const short = QUALITY[state.quality] || 1080;
+  const long = Math.round(short*16/9);
+  if(state.format === 'portrait'){ canvas.width=short; canvas.height=long; }
+  else { canvas.width=long; canvas.height=short; }
+  wpCache.key = null;   // wallpaper is cached per canvas size
+}
+
+// Device size trades margin for pixels: a bigger device means the recording is
+// drawn larger, which is the difference between readable body text and a smudge.
+function frameMargin(){
+  return 0.12 - (state.deviceSize/100)*0.10;
 }
 sizeCanvas();
 
@@ -649,6 +724,8 @@ sizeCanvas();
    and the camera pans horizontally to follow what's moving.
    ============================================================ */
 const cam = {
+  mode: 'manual',  // 'manual' = the person points at it, 'auto' = detected
+  points: [],      // manual camera points: {t, x, y} with x/y as 0..1 of the recording
   samples: null,   // raw motion readings from the scan pass
   path: null,      // smoothed per-frame camera track
   analyzing: false,
@@ -660,24 +737,128 @@ const cam = {
 function resetCamera(){
   cam.samples = null;
   cam.path = null;
+  cam.points = [];
   camBar.style.width = '0%';
   camStatus.textContent = '';
   analyzeBtn.textContent = 'Scan recording';
+  renderPoints();
+}
+
+// The path is rebuilt from whatever the current mode already has, so the sliders
+// stay live without ever forcing another scan.
+function refreshPath(){
+  if(cam.mode === 'manual' ? cam.points.length : cam.samples){ buildPath(); draw(); }
 }
 
 document.getElementById('camZoom').addEventListener('input', e=>{
   cam.zoom = +e.target.value;
-  if(cam.samples){ buildPath(); draw(); }
+  refreshPath();
 });
 document.getElementById('camSmooth').addEventListener('input', e=>{
   cam.smooth = +e.target.value;
-  if(cam.samples){ buildPath(); draw(); }
+  refreshPath();
 });
 document.getElementById('camDebug').addEventListener('change', e=>{
   cam.debug = e.target.checked;
   draw();
 });
 analyzeBtn.addEventListener('click', ()=>analyzeMotion());
+
+wireSeg('camModeSeg','cammode', ()=>{
+  cam.mode = state.cammode;
+  const manual = cam.mode === 'manual';
+  document.getElementById('manualCam').style.display = manual ? 'block' : 'none';
+  document.getElementById('autoCam').style.display = manual ? 'none' : 'block';
+  if(!manual && state.hasVideo && !cam.samples && !cam.analyzing) analyzeMotion();
+  else { buildPath(); updateCanvasCursor(); draw(); }
+});
+
+/* ---------- manual camera points ---------- */
+
+const pointList = document.getElementById('pointList');
+const clearPointsBtn = document.getElementById('clearPointsBtn');
+
+function renderPoints(){
+  clearPointsBtn.disabled = cam.points.length === 0;
+  if(!cam.points.length){
+    pointList.innerHTML = '<p class="empty">No camera points yet. Pause and click the preview to add one.</p>';
+    return;
+  }
+  pointList.innerHTML = '';
+  cam.points.forEach((p,i)=>{
+    const row = document.createElement('div');
+    row.className = 'pt';
+    const time = document.createElement('b');
+    time.textContent = fmt(p.t);
+    const label = document.createElement('span');
+    label.textContent = `${Math.round(p.x*100)}% across, ${Math.round(p.y*100)}% down`;
+    const del = document.createElement('button');
+    del.textContent = '×';
+    del.title = 'Remove this point';
+    del.setAttribute('aria-label', `Remove camera point at ${fmt(p.t)}`);
+    del.onclick = ()=>{
+      cam.points.splice(i,1);
+      renderPoints();
+      buildPath();
+      draw();
+    };
+    row.append(time, label, del);
+    pointList.appendChild(row);
+  });
+}
+
+clearPointsBtn.addEventListener('click', ()=>{
+  cam.points = [];
+  renderPoints();
+  buildPath();
+  draw();
+});
+
+// The rect the video is being painted into right now — needed to turn a click on
+// the canvas back into a position inside the recording.
+function activeRect(){
+  if(state.layout === 'layered'){
+    const l = state.layerA;
+    return layeredFrameRect(l.frame, canvas.width*l.x/100, canvas.height*l.y/100, canvas.width*l.scale/100);
+  }
+  return getScreenRect();
+}
+
+function updateCanvasCursor(){
+  const pointing = state.fit === 'smart' && cam.mode === 'manual' && state.hasVideo;
+  canvas.classList.toggle('pointing', pointing);
+}
+
+canvas.addEventListener('click', e=>{
+  if(state.fit !== 'smart' || cam.mode !== 'manual' || !state.hasVideo || !video.videoWidth) return;
+
+  // The canvas is displayed scaled down by CSS, so a click has to be converted
+  // into the canvas's own coordinate space before anything else.
+  const box = canvas.getBoundingClientRect();
+  const px = (e.clientX - box.left) * (canvas.width / box.width);
+  const py = (e.clientY - box.top) * (canvas.height / box.height);
+
+  const rect = activeRect();
+  const u = (px - rect.x) / rect.w;
+  const v = (py - rect.y) / rect.h;
+  if(u < 0 || u > 1 || v < 0 || v > 1) return;   // clicked the frame or background
+
+  // Invert the crop the camera is currently showing, so the click lands on the
+  // thing under the pointer even when the view is already zoomed in.
+  const c = cameraCrop(rect.w, rect.h, video.currentTime);
+  const x = (c.sx + u*c.cw) / video.videoWidth;
+  const y = (c.sy + v*c.ch) / video.videoHeight;
+
+  const t = video.currentTime;
+  const near = cam.points.findIndex(p => Math.abs(p.t - t) < 0.25);
+  if(near >= 0) cam.points[near] = {t, x, y};      // clicking again at the same moment moves it
+  else cam.points.push({t, x, y});
+  cam.points.sort((a,b)=>a.t-b.t);
+
+  renderPoints();
+  buildPath();
+  draw();
+});
 
 const ANALYZE_RATE = 8;      // playback speed used during the scan pass
 // A cursor is only ~20px wide. Scanning at 64px meant it shrank below one pixel
@@ -869,7 +1050,42 @@ function dilate(arr, radius){
   }
 }
 
+// Builds the track from the points the person placed. Each point is held for a
+// window around its own time and the gaps drop back to a wide shot, then the
+// whole thing is smoothed — so the camera eases toward a point before it arrives
+// and eases away after, instead of snapping between positions.
+function buildManualPath(){
+  const FPS = 30;
+  if(!cam.points.length || !video.duration){ cam.path = null; return; }
+  const n = Math.max(2, Math.ceil(video.duration*FPS)+1);
+  const px = new Float32Array(n), py = new Float32Array(n), pz = new Float32Array(n);
+
+  const maxZoom = 1 + (cam.zoom/100) * 1.8;
+  const HOLD = 1.6;   // seconds either side of a point that stay zoomed in
+
+  let holdX = cam.points[0].x, holdY = cam.points[0].y;
+  for(let i=0;i<n;i++){
+    const t = i/FPS;
+    let best = null, bestDist = Infinity;
+    for(const p of cam.points){
+      const d = Math.abs(p.t - t);
+      if(d < bestDist){ bestDist = d; best = p; }
+    }
+    if(best){ holdX = best.x; holdY = best.y; }
+    px[i] = holdX;
+    py[i] = holdY;
+    pz[i] = bestDist <= HOLD ? maxZoom : 1;
+  }
+
+  const sigma = (0.18 + (cam.smooth/100)*1.1) * FPS;
+  gaussianSmooth(px, sigma);
+  gaussianSmooth(py, sigma);
+  gaussianSmooth(pz, sigma*1.25);
+  cam.path = {fps:FPS, n, x:px, y:py, z:pz};
+}
+
 function buildPath(){
+  if(cam.mode === 'manual') return buildManualPath();
   if(!cam.samples || !cam.samples.length || !video.duration){ cam.path = null; return; }
   const FPS = 30;
   const n = Math.max(2, Math.ceil(video.duration*FPS)+1);
@@ -955,20 +1171,27 @@ function drawVideoContain(x,y,w,h){
   ctx.restore();
 }
 
-function drawVideoSmart(x,y,w,h){
-  if(!state.hasVideo || video.videoWidth===0) return;
+// Which part of the recording the camera is looking at right now. Shared by the
+// painter, the debug overlay and the click handler — a click can only be turned
+// back into a position in the recording by inverting exactly this crop.
+function cameraCrop(w, h, t){
   const vw=video.videoWidth, vh=video.videoHeight;
-  const c = camAt(video.currentTime);
+  const c = camAt(t);
   const destA = w/h;
   let cw, ch;
   if(vw/vh > destA){ ch = vh; cw = ch*destA; }   // wide source, tall target: keep full height
   else { cw = vw; ch = cw/destA; }
   cw = Math.min(vw, cw/c.z);
   ch = Math.min(vh, ch/c.z);
-  let sx = c.x*vw - cw/2, sy = c.y*vh - ch/2;
-  sx = Math.max(0, Math.min(vw-cw, sx));
-  sy = Math.max(0, Math.min(vh-ch, sy));
-  ctx.drawImage(video, sx, sy, cw, ch, x, y, w, h);
+  const sx = Math.max(0, Math.min(vw-cw, c.x*vw - cw/2));
+  const sy = Math.max(0, Math.min(vh-ch, c.y*vh - ch/2));
+  return {sx, sy, cw, ch, z:c.z};
+}
+
+function drawVideoSmart(x,y,w,h){
+  if(!state.hasVideo || video.videoWidth===0) return;
+  const c = cameraCrop(w, h, video.currentTime);
+  ctx.drawImage(video, c.sx, c.sy, c.cw, c.ch, x, y, w, h);
 }
 
 function paintVideo(x,y,w,h){
@@ -1032,17 +1255,17 @@ function srcAspect(fallback){
 
 function getScreenRect(){
   const W = canvas.width, H = canvas.height;
-  if(state.bg === 'photo'){
-    const s = state.photoScreen;
-    return {x:W*s.x/100, y:H*s.y/100, w:W*s.w/100, h:H*s.h/100, kind:'none', radius:s.r};
-  }
+  // A background image is now just a background: the device frame sits on top of it
+  // like it does for every other background style. Previously this branch replaced
+  // the whole frame with a slider-positioned rectangle, which silently disabled the
+  // device buttons whenever a photo was loaded.
   switch(state.frame){
     case 'laptop': {
-      const f = fitFrame(srcAspect(16/10), 0.17, 0.08);
+      const f = fitFrame(srcAspect(16/10), 0.17, frameMargin());
       return {x:f.x, y:f.y, w:f.w, h:f.h, kind:'laptop'};
     }
     case 'desktop': {
-      const f = fitFrame(srcAspect(16/9), 0.20, 0.08);
+      const f = fitFrame(srcAspect(16/9), 0.20, frameMargin());
       return {x:f.x, y:f.y, w:f.w, h:f.h, kind:'desktop'};
     }
     case 'mobile': {
@@ -1057,7 +1280,7 @@ function getScreenRect(){
       // The window is built outward from the content area rather than inward from
       // the canvas, so the page fills it exactly whatever shape the recording is.
       const a = srcAspect(16/10);
-      const marg = 0.07, barFrac = 0.085;
+      const marg = frameMargin(), barFrac = 0.085;
       const maxW = W*(1-marg*2), maxH = H*(1-marg*2);
       let sw = maxW, sh = sw/a;
       let totalH = sh*(1+barFrac);
@@ -1082,14 +1305,32 @@ function drawBackground(){
       const img = state.bgImage;
       const scale = Math.max(W/img.width, H/img.height);
       const dw = img.width*scale, dh = img.height*scale;
-      ctx.drawImage(img, (W-dw)/2, (H-dh)/2, dw, dh);
+      ctx.save();
+      // Blurring a background photo is what stops it competing with the device on
+      // top of it, so it's offered as a slider rather than left to the person's
+      // image editor.
+      if(state.imgBlur > 0){
+        ctx.filter = `blur(${(state.imgBlur/100)*Math.min(W,H)*0.045}px)`;
+        const over = (state.imgBlur/100)*0.12;   // grow past the edges so blur can't bleed in
+        ctx.drawImage(img, (W-dw)/2 - W*over, (H-dh)/2 - H*over, dw + W*over*2, dh + H*over*2);
+      } else {
+        ctx.drawImage(img, (W-dw)/2, (H-dh)/2, dw, dh);
+      }
+      ctx.restore();
+      if(state.imgDim < 100){
+        ctx.fillStyle = `rgba(0,0,0,${(100-state.imgDim)/65*0.75})`;
+        ctx.fillRect(0,0,W,H);
+      } else if(state.imgDim > 100){
+        ctx.fillStyle = `rgba(255,255,255,${(state.imgDim-100)/30*0.28})`;
+        ctx.fillRect(0,0,W,H);
+      }
     } else {
       ctx.fillStyle = '#2b2d31';
       ctx.fillRect(0,0,W,H);
       ctx.fillStyle = '#9a978f';
-      ctx.font = '16px sans-serif';
+      ctx.font = `${Math.round(W*0.014)}px sans-serif`;
       ctx.textAlign = 'center';
-      ctx.fillText('Upload a desk or monitor photo to place the screen', W/2, H/2);
+      ctx.fillText('Upload a photo to use as the background', W/2, H/2);
       ctx.textAlign = 'start';
     }
     return;
@@ -1365,7 +1606,6 @@ function drawLayer(layer){
 function drawCameraPath(rect){
   if(!cam.path || !state.hasVideo) return;
   const vw=video.videoWidth, vh=video.videoHeight;
-  const c = camAt(video.currentTime);
   ctx.save();
   ctx.strokeStyle = 'rgba(47,111,94,0.9)';
   ctx.lineWidth = 2;
@@ -1381,17 +1621,21 @@ function drawCameraPath(rect){
   }
   ctx.strokeStyle = 'rgba(231,240,236,0.55)';
   ctx.stroke();
-  const destA = rect.w/rect.h;
-  let cw, ch;
-  if(vw/vh > destA){ ch = vh; cw = ch*destA; } else { cw = vw; ch = cw/destA; }
-  cw = Math.min(vw, cw/c.z); ch = Math.min(vh, ch/c.z);
-  let sx = Math.max(0, Math.min(vw-cw, c.x*vw-cw/2));
-  let sy = Math.max(0, Math.min(vh-ch, c.y*vh-ch/2));
+
+  // The points the person placed, so it's obvious what the camera is aiming at.
+  cam.points.forEach(p=>{
+    ctx.fillStyle = 'rgba(231,240,236,0.9)';
+    ctx.beginPath();
+    ctx.arc(bx + p.x*bw, by + p.y*bh, 3, 0, Math.PI*2);
+    ctx.fill();
+  });
+
+  const cr = cameraCrop(rect.w, rect.h, video.currentTime);
   ctx.strokeStyle = '#2f6f5e';
   ctx.lineWidth = 2;
-  ctx.strokeRect(bx + sx/vw*bw, by + sy/vh*bh, cw/vw*bw, ch/vh*bh);
+  ctx.strokeRect(bx + cr.sx/vw*bw, by + cr.sy/vh*bh, cr.cw/vw*bw, cr.ch/vh*bh);
   ctx.fillStyle = '#e7f0ec';
-  ctx.fillText(`zoom ${c.z.toFixed(2)}×`, bx+6, by+bh+16);
+  ctx.fillText(`zoom ${cr.z.toFixed(2)}×`, bx+6, by+bh+16);
   ctx.restore();
 }
 
@@ -1409,20 +1653,9 @@ function draw(){
 
   const rect = getScreenRect();
   if(rect.kind !== 'none') drawFrameChrome(rect);
-  const clipR = paintScreen(rect);
+  paintScreen(rect);
   if(rect.kind === 'mobile') drawMobileOverlay(rect);
   if(rect.kind === 'laptop') drawLaptopOverlay(rect);
-
-  // Placement guide for photo mode — preview only, never recorded.
-  if(!isExporting && state.bg==='photo'){
-    ctx.save();
-    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([7,5]);
-    roundRect(rect.x, rect.y, rect.w, rect.h, clipR);
-    ctx.stroke();
-    ctx.restore();
-  }
 
   if(!isExporting && cam.debug && state.fit==='smart') drawCameraPath(rect);
 }
@@ -1522,7 +1755,9 @@ exportBtn.addEventListener('click', async ()=>{
   const isNativeMp4 = !!mimeType;
   if(!mimeType) mimeType = webmCandidates.find(t=>MediaRecorder.isTypeSupported(t)) || 'video/webm';
 
-  const recorder = new MediaRecorder(combined, {mimeType, videoBitsPerSecond: 8_000_000});
+  // Bitrate has to rise with resolution or 1440p just produces a bigger blur.
+  const bitrate = {'720':8_000_000, '1080':16_000_000, '1440':28_000_000}[state.quality] || 16_000_000;
+  const recorder = new MediaRecorder(combined, {mimeType, videoBitsPerSecond: bitrate});
   const chunks = [];
   recorder.ondataavailable = e=>{ if(e.data.size>0) chunks.push(e.data); };
 
