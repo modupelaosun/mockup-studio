@@ -218,6 +218,11 @@
             <button data-frame="laptop">Laptop</button>
             <button data-frame="browser">Browser</button>
           </div>
+          <label class="drop" id="dropZoneB" style="padding:14px;font-size:12px;margin:10px 0 12px;">
+            Click or drop a second recording for this device
+            <input type="file" id="fileInputB" accept="video/*">
+          </label>
+          <p class="hint" id="layerBNote" style="margin:-6px 0 12px;">Record your site in a phone-shaped window and drop it here, so the phone shows the mobile layout instead of a squeezed desktop one.</p>
           <div class="row"><span>X position</span><input type="range" id="layerBx" min="0" max="100" value="76"></div>
           <div class="row"><span>Y position</span><input type="range" id="layerBy" min="0" max="100" value="80"></div>
           <div class="row"><span>Size</span><input type="range" id="layerBscale" min="10" max="80" value="30"></div>
@@ -288,6 +293,7 @@
 </div>
 
 <video id="srcVideo" style="display:none;" playsinline muted></video>
+<video id="srcVideoB" style="display:none;" playsinline muted></video>
 
 <script>
 const state = {
@@ -685,21 +691,101 @@ function fmt(s){
   return `${m}:${r.toString().padStart(2,'0')}`;
 }
 
+/* ---------- second recording for the front layer ---------- */
+// The whole point of the layered shot is one design on two devices: the wide
+// layout on the laptop, the mobile layout on the phone. That needs a second
+// recording, because a landscape recording squeezed into a phone screen can only
+// ever be cropped or stretched. The main recording stays the timeline; this one
+// is slaved to it.
+const videoB = document.getElementById('srcVideoB');
+const dropZoneB = document.getElementById('dropZoneB');
+let fileInputB = document.getElementById('fileInputB');
+let videoBObjectUrl = null;
+let hasVideoB = false;
+
+function setDropZoneBContent(html){
+  dropZoneB.innerHTML = html + '<input type="file" id="fileInputB" accept="video/*">';
+  fileInputB = document.getElementById('fileInputB');
+  fileInputB.addEventListener('change', e=>{
+    const f = e.target.files[0];
+    if(f) loadFileB(f);
+  });
+}
+
+function loadFileB(file){
+  if(!file.type.startsWith('video/')){
+    setDropZoneBContent(`"${file.name}" isn't a video file. Click to pick another.`);
+    return;
+  }
+  setDropZoneBContent(`Loading "${file.name}"…`);
+  videoB.onloadedmetadata = ()=>{
+    hasVideoB = true;
+    dropZoneB.classList.add('has-file');
+    setDropZoneBContent(`Front device: ${file.name}<br><span style="font-size:11px;">${videoB.videoWidth}×${videoB.videoHeight} · click to replace</span>`);
+    document.getElementById('layerBNote').textContent =
+      'This device now plays its own recording, kept in step with the main one.';
+    syncVideoB(true);
+    draw();
+  };
+  videoB.onerror = ()=>{
+    hasVideoB = false;
+    setDropZoneBContent(`Couldn't load that file. Click to pick another.`);
+    draw();
+  };
+  if(videoBObjectUrl) URL.revokeObjectURL(videoBObjectUrl);
+  videoBObjectUrl = URL.createObjectURL(file);
+  videoB.src = videoBObjectUrl;
+}
+
+fileInputB.addEventListener('change', e=>{
+  const f = e.target.files[0];
+  if(f) loadFileB(f);
+});
+['dragover','dragenter'].forEach(ev=>dropZoneB.addEventListener(ev, e=>e.preventDefault()));
+dropZoneB.addEventListener('drop', e=>{
+  e.preventDefault();
+  const f = e.dataTransfer.files[0];
+  if(f) loadFileB(f);
+});
+
+// Keeps the second recording in step with the main one. If it is shorter it
+// simply holds on its last frame rather than looping, which would read as a
+// glitch in an exported mockup.
+function syncVideoB(seekToo){
+  if(!hasVideoB || !videoB.duration) return;
+  // The motion scan races the main recording at 8x; the second one sits it out.
+  if(cam.analyzing){ if(!videoB.paused) videoB.pause(); return; }
+  const t = Math.min(video.currentTime, videoB.duration - 0.05);
+  if(seekToo || Math.abs(videoB.currentTime - t) > 0.15){
+    try { videoB.currentTime = Math.max(0, t); } catch(e){}
+  }
+  if(video.paused || video.currentTime >= videoB.duration){
+    if(!videoB.paused) videoB.pause();
+  } else if(videoB.paused){
+    videoB.play().catch(()=>{});
+  }
+}
+
 playBtn.onclick = ()=>{
   if(cam.analyzing) return;
   if(video.paused){ video.play(); playBtn.textContent='❚❚'; }
   else { video.pause(); playBtn.textContent='▶'; }
+  syncVideoB(false);
 };
-video.addEventListener('ended', ()=>{ playBtn.textContent='▶'; });
+video.addEventListener('play', ()=>syncVideoB(true));
+video.addEventListener('pause', ()=>syncVideoB(false));
+video.addEventListener('ended', ()=>{ playBtn.textContent='▶'; syncVideoB(false); });
 video.addEventListener('timeupdate', ()=>{
   if(cam.analyzing) return;
   if(document.activeElement !== seek) seek.value = Math.floor(video.currentTime*10);
   timeLabel.textContent = `${fmt(video.currentTime)} / ${fmt(video.duration)}`;
+  syncVideoB(false);
   drawZoomStrip();
 });
 seek.addEventListener('input', ()=>{
   if(cam.analyzing) return;
   video.currentTime = seek.value/10;
+  syncVideoB(true);
   draw();
   drawZoomStrip();
 });
@@ -1261,28 +1347,31 @@ function camAt(t){
 
 /* ---------- video painters ---------- */
 
-function drawVideoCover(x,y,w,h){
-  if(!state.hasVideo || video.videoWidth===0) return;
-  const vw=video.videoWidth, vh=video.videoHeight;
+// Every painter takes the video to draw. It defaults to the main recording, so
+// single-frame mode is untouched; layered mode passes the second recording for
+// the front device when one has been loaded.
+function drawVideoCover(x,y,w,h,vid=video){
+  if(!vid || vid.videoWidth===0) return;
+  const vw=vid.videoWidth, vh=vid.videoHeight;
   const scale = Math.max(w/vw, h/vh);
   const dw=vw*scale, dh=vh*scale;
-  ctx.drawImage(video, x+(w-dw)/2, y+(h-dh)/2, dw, dh);
+  ctx.drawImage(vid, x+(w-dw)/2, y+(h-dh)/2, dw, dh);
 }
 
 // Nothing is cropped. The leftover space is filled with a soft blurred blow-up of
 // the same frame, so a wide desktop recording in a tall phone screen reads as a
 // composed shot rather than a small strip floating in a black void.
-function drawVideoContain(x,y,w,h){
-  if(!state.hasVideo || video.videoWidth===0) return;
-  drawBlurFill(x,y,w,h,0.45);
-  const vw=video.videoWidth, vh=video.videoHeight;
+function drawVideoContain(x,y,w,h,vid=video){
+  if(!vid || vid.videoWidth===0) return;
+  drawBlurFill(x,y,w,h,0.45,vid);
+  const vw=vid.videoWidth, vh=vid.videoHeight;
   const scale = Math.min(w/vw, h/vh);
   const dw=vw*scale, dh=vh*scale;
   const dx = x+(w-dw)/2, dy = y+(h-dh)/2;
   ctx.save();
   ctx.shadowColor = 'rgba(0,0,0,0.45)';
   ctx.shadowBlur = Math.max(6, w*0.03);
-  ctx.drawImage(video, dx, dy, dw, dh);
+  ctx.drawImage(vid, dx, dy, dw, dh);
   ctx.restore();
 }
 
@@ -1309,10 +1398,12 @@ function drawVideoSmart(x,y,w,h){
   ctx.drawImage(video, c.sx, c.sy, c.cw, c.ch, x, y, w, h);
 }
 
-function paintVideo(x,y,w,h){
-  if(state.fit==='smart') drawVideoSmart(x,y,w,h);
-  else if(state.fit==='contain') drawVideoContain(x,y,w,h);
-  else drawVideoCover(x,y,w,h);
+function paintVideo(x,y,w,h,vid=video){
+  // The camera path is measured against the main recording, so it only applies
+  // to that one. A second recording falls back to filling its own screen.
+  if(state.fit==='smart' && vid===video) drawVideoSmart(x,y,w,h);
+  else if(state.fit==='contain') drawVideoContain(x,y,w,h,vid);
+  else drawVideoCover(x,y,w,h,vid);
 }
 
 // Blur is by far the most expensive canvas operation, and export records in real
@@ -1323,15 +1414,15 @@ const blurOut = document.createElement('canvas');
 const blurSrcCtx = blurSrc.getContext('2d');
 const blurOutCtx = blurOut.getContext('2d');
 
-function drawBlurFill(x,y,w,h,brightness){
-  if(!state.hasVideo || video.videoWidth===0) return;
+function drawBlurFill(x,y,w,h,brightness,vid=video){
+  if(!vid || vid.videoWidth===0) return;
   const bw = 96;
-  const bh = Math.max(2, Math.round(bw * video.videoHeight / video.videoWidth));
+  const bh = Math.max(2, Math.round(bw * vid.videoHeight / vid.videoWidth));
   if(blurSrc.width !== bw || blurSrc.height !== bh){
     blurSrc.width = blurOut.width = bw;
     blurSrc.height = blurOut.height = bh;
   }
-  blurSrcCtx.drawImage(video, 0, 0, bw, bh);
+  blurSrcCtx.drawImage(vid, 0, 0, bw, bh);
   blurOutCtx.filter = `blur(5px) brightness(${brightness})`;
   blurOutCtx.drawImage(blurSrc, 0, 0);
   blurOutCtx.filter = 'none';
@@ -1687,7 +1778,7 @@ function layeredFrameRect(frame, cx, cy, targetW){
   }
 }
 
-function paintScreen(rect){
+function paintScreen(rect, vid=video){
   ctx.save();
   const clipR = rect.radius!==undefined
     ? rect.radius
@@ -1696,7 +1787,7 @@ function paintScreen(rect){
   ctx.clip();
   ctx.fillStyle = '#000';
   ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
-  paintVideo(rect.x, rect.y, rect.w, rect.h);
+  paintVideo(rect.x, rect.y, rect.w, rect.h, vid);
   if(state.glare && rect.kind !== 'none'){
     const g = ctx.createLinearGradient(rect.x, rect.y, rect.x+rect.w*0.8, rect.y+rect.h*1.1);
     g.addColorStop(0,    'rgba(255,255,255,0.14)');
@@ -1709,11 +1800,11 @@ function paintScreen(rect){
   return clipR;
 }
 
-function drawLayer(layer){
+function drawLayer(layer, vid=video){
   const W=canvas.width, H=canvas.height;
   const rect = layeredFrameRect(layer.frame, W*layer.x/100, H*layer.y/100, W*layer.scale/100);
   if(rect.kind !== 'none') drawFrameChrome(rect);
-  paintScreen(rect);
+  paintScreen(rect, vid);
   if(rect.kind === 'mobile') drawMobileOverlay(rect);
   if(rect.kind === 'laptop') drawLaptopOverlay(rect);
 }
@@ -1806,7 +1897,7 @@ function draw(){
 
   if(state.layout === 'layered'){
     drawLayer(state.layerA);
-    if(state.layerB.enabled) drawLayer(state.layerB);
+    if(state.layerB.enabled) drawLayer(state.layerB, hasVideoB ? videoB : video);
     if(!isExporting && cam.debug && state.fit==='smart'){
       drawCameraPath(layeredFrameRect(state.layerA.frame, 0, 0, canvas.width*state.layerA.scale/100));
     }
@@ -1896,6 +1987,12 @@ exportBtn.addEventListener('click', async ()=>{
   video.currentTime = 0;
   video.playbackRate = 1;
   video.muted = false;
+  // The second recording has to restart with the first or the exported file
+  // would begin part-way through it.
+  if(hasVideoB){
+    videoB.playbackRate = 1;
+    try { videoB.currentTime = 0; } catch(e){}
+  }
   try { await video.play(); }
   catch(e){
     statusText.textContent = 'Playback was blocked. Press play once, then export.';
@@ -1903,6 +2000,7 @@ exportBtn.addEventListener('click', async ()=>{
     exportBtn.disabled = false;
     return;
   }
+  syncVideoB(true);
   playBtn.textContent = '❚❚';
 
   // Capture after playback starts — Chrome hands back zero audio tracks if the
