@@ -74,6 +74,7 @@
   .pt button:hover{background:#f7e9e4;}
   .pt button:focus-visible{outline:2px solid var(--accent);outline-offset:1px;}
   canvas.pointing{cursor:crosshair;}
+  .zoomstrip{width:100%;height:52px;display:block;margin-top:14px;border-radius:6px;background:#f2f1ed;border:1px solid var(--line);}
 
   .stage{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;display:flex;flex-direction:column;align-items:center;gap:14px;min-height:520px;justify-content:center;}
   canvas{max-width:100%;max-height:70vh;background:#111;border-radius:6px;}
@@ -187,9 +188,12 @@
           <div class="status" id="camStatus"></div>
         </div>
 
-        <div class="row" style="margin-top:14px;"><span>Zoom strength</span><input type="range" id="camZoom" min="0" max="100" value="55"></div>
-        <div class="row"><span>Smoothness</span><input type="range" id="camSmooth" min="0" max="100" value="60"></div>
-        <div class="row"><span>Show camera path</span><input type="checkbox" id="camDebug"></div>
+        <div class="row" style="margin-top:14px;"><span>How far in</span><input type="range" id="camZoom" min="0" max="100" value="55"></div>
+        <div class="row"><span>How long it stays in</span><input type="range" id="camHold" min="30" max="300" value="100"></div>
+        <div class="row"><span>How fast it moves</span><input type="range" id="camSmooth" min="0" max="100" value="60"></div>
+        <canvas id="zoomStrip" class="zoomstrip" width="560" height="52"></canvas>
+        <p class="hint" id="zoomStripNote" style="margin:6px 0 0;">Each point gets its own zoom. The line drops to the bottom wherever the whole screen is showing.</p>
+        <div class="row" style="margin-top:12px;"><span>Show camera path</span><input type="checkbox" id="camDebug"></div>
       </div>
 
       <div class="panel" id="layeredPanel" style="display:none;">
@@ -691,8 +695,14 @@ video.addEventListener('timeupdate', ()=>{
   if(cam.analyzing) return;
   if(document.activeElement !== seek) seek.value = Math.floor(video.currentTime*10);
   timeLabel.textContent = `${fmt(video.currentTime)} / ${fmt(video.duration)}`;
+  drawZoomStrip();
 });
-seek.addEventListener('input', ()=>{ if(!cam.analyzing){ video.currentTime = seek.value/10; draw(); } });
+seek.addEventListener('input', ()=>{
+  if(cam.analyzing) return;
+  video.currentTime = seek.value/10;
+  draw();
+  drawZoomStrip();
+});
 
 // The frame body and margins eat into the canvas, so a 1280-wide canvas left a
 // 1920-wide recording rendered at roughly 900px — half size, and small text in the
@@ -730,6 +740,7 @@ const cam = {
   path: null,      // smoothed per-frame camera track
   analyzing: false,
   zoom: 55,
+  hold: 1.0,       // seconds each point stays at full zoom
   smooth: 60,
   debug: false,
 };
@@ -748,10 +759,78 @@ function resetCamera(){
 // stay live without ever forcing another scan.
 function refreshPath(){
   if(cam.mode === 'manual' ? cam.points.length : cam.samples){ buildPath(); draw(); }
+  drawZoomStrip();
+}
+
+/* ---------- zoom timeline ---------- */
+// The whole complaint here was invisible: you could not tell whether the camera
+// had returned to full screen or was still slightly zoomed. This draws the zoom
+// over time, so the flat stretches at the bottom are the moments showing the
+// whole screen, and the humps are the zooms.
+const zoomStrip = document.getElementById('zoomStrip');
+const zsCtx = zoomStrip.getContext('2d');
+
+function drawZoomStrip(){
+  const W = zoomStrip.width, H = zoomStrip.height;
+  zsCtx.clearRect(0,0,W,H);
+  const pad = 6, baseY = H - pad, topY = pad;
+
+  zsCtx.strokeStyle = '#d6d4cd';
+  zsCtx.lineWidth = 1;
+  zsCtx.beginPath();
+  zsCtx.moveTo(0, baseY + 0.5); zsCtx.lineTo(W, baseY + 0.5);
+  zsCtx.stroke();
+
+  if(!cam.path || !video.duration){
+    zsCtx.fillStyle = '#9a978f';
+    zsCtx.font = '11px monospace';
+    zsCtx.textAlign = 'center';
+    zsCtx.fillText('no camera points yet', W/2, H/2 + 4);
+    zsCtx.textAlign = 'start';
+    return;
+  }
+
+  const maxZ = 1 + (cam.zoom/100)*1.8;
+  const span = Math.max(0.001, maxZ - 1);
+  zsCtx.beginPath();
+  zsCtx.moveTo(0, baseY);
+  for(let i=0;i<cam.path.n;i++){
+    const x = (i/(cam.path.n-1))*W;
+    const f = (cam.path.z[i]-1)/span;
+    zsCtx.lineTo(x, baseY - f*(baseY-topY));
+  }
+  zsCtx.lineTo(W, baseY);
+  zsCtx.closePath();
+  zsCtx.fillStyle = 'rgba(47,111,94,0.18)';
+  zsCtx.fill();
+  zsCtx.strokeStyle = '#2f6f5e';
+  zsCtx.lineWidth = 1.5;
+  zsCtx.stroke();
+
+  cam.points.forEach(p=>{
+    const x = (p.t/video.duration)*W;
+    zsCtx.fillStyle = '#2f6f5e';
+    zsCtx.beginPath();
+    zsCtx.arc(x, topY, 3, 0, Math.PI*2);
+    zsCtx.fill();
+  });
+
+  if(state.hasVideo){
+    const x = (video.currentTime/video.duration)*W;
+    zsCtx.strokeStyle = '#16181d';
+    zsCtx.lineWidth = 1;
+    zsCtx.beginPath();
+    zsCtx.moveTo(x, 0); zsCtx.lineTo(x, H);
+    zsCtx.stroke();
+  }
 }
 
 document.getElementById('camZoom').addEventListener('input', e=>{
   cam.zoom = +e.target.value;
+  refreshPath();
+});
+document.getElementById('camHold').addEventListener('input', e=>{
+  cam.hold = +e.target.value / 100;
   refreshPath();
 });
 document.getElementById('camSmooth').addEventListener('input', e=>{
@@ -800,6 +879,7 @@ function renderPoints(){
       cam.points.splice(i,1);
       renderPoints();
       buildPath();
+      drawZoomStrip();
       draw();
     };
     row.append(time, label, del);
@@ -811,6 +891,7 @@ clearPointsBtn.addEventListener('click', ()=>{
   cam.points = [];
   renderPoints();
   buildPath();
+  drawZoomStrip();
   draw();
 });
 
@@ -857,6 +938,7 @@ canvas.addEventListener('click', e=>{
 
   renderPoints();
   buildPath();
+  drawZoomStrip();
   draw();
 });
 
@@ -1050,9 +1132,30 @@ function dilate(arr, radius){
   }
 }
 
-// Builds the track from the points the person placed: hold at full zoom on each
-// point, ease back out, and sit at exactly 1.0 — the whole uncropped screen —
-// everywhere in between.
+const RAMP_MIN = 0.30, RAMP_MAX = 1.10;
+function rampSeconds(){ return RAMP_MIN + (cam.smooth/100)*(RAMP_MAX-RAMP_MIN); }
+function holdSeconds(){ return cam.hold; }
+
+// Each point is its own zoom segment — in, hold, out — exactly like a click in
+// Screen Studio. The envelope is the strongest segment at that instant, so
+// wherever no segment is running the value is 0 and the camera shows the whole
+// screen. The earlier version measured distance to the nearest point instead,
+// which made one continuous 4.7-second-wide blob per point: any two points
+// closer than that never dropped back to full screen and the camera simply
+// panned between them while still zoomed, which reads as the picture scrolling.
+function zoomEnvelopeAt(t){
+  const half = holdSeconds()/2, ramp = rampSeconds();
+  let best = 0;
+  for(const p of cam.points){
+    const d = Math.abs(p.t - t);
+    if(d >= half + ramp) continue;
+    const s = d <= half ? 1 : 1 - (d - half)/ramp;
+    const e = s*s*(3 - 2*s);                    // smoothstep
+    if(e > best) best = e;
+  }
+  return best;
+}
+
 function buildManualPath(){
   const FPS = 30;
   if(!cam.points.length || !video.duration){ cam.path = null; return; }
@@ -1060,8 +1163,6 @@ function buildManualPath(){
   const px = new Float32Array(n), py = new Float32Array(n), pz = new Float32Array(n);
 
   const maxZoom = 1 + (cam.zoom/100) * 1.8;
-  const HOLD = 1.2;                               // seconds held at full zoom on a point
-  const RAMP = 0.45 + (cam.smooth/100) * 1.15;    // seconds to travel between wide and close
 
   let holdX = cam.points[0].x, holdY = cam.points[0].y;
   for(let i=0;i<n;i++){
@@ -1074,19 +1175,14 @@ function buildManualPath(){
     if(best){ holdX = best.x; holdY = best.y; }
     px[i] = holdX;
     py[i] = holdY;
-
-    // The zoom curve is shaped directly rather than blurred into shape. Gaussian
-    // smoothing spread each peak outward and its tail never decayed to zero, so
-    // the camera rested at ~1.09x and the screen stayed slightly cropped — which
-    // also left it room to drift sideways between points. A smoothstep ramp is
-    // just as soft and lands on exactly 1.0.
-    const s = Math.max(0, Math.min(1, 1 - (bestDist - HOLD)/RAMP));
-    pz[i] = 1 + (s*s*(3 - 2*s)) * (maxZoom - 1);
+    pz[i] = 1 + zoomEnvelopeAt(t) * (maxZoom - 1);
   }
 
-  const sigma = (0.18 + (cam.smooth/100)*1.1) * FPS;
-  gaussianSmooth(px, sigma);
-  gaussianSmooth(py, sigma);
+  // Position is smoothed only enough to soften the handover, which lands in the
+  // middle of a gap. Smoothing it as widely as before pushed the move into the
+  // zoomed-in stretches, where it is visible as a pan.
+  gaussianSmooth(px, rampSeconds()*0.45*FPS);
+  gaussianSmooth(py, rampSeconds()*0.45*FPS);
   cam.path = {fps:FPS, n, x:px, y:py, z:pz};
 }
 
@@ -1658,6 +1754,53 @@ function drawCameraPath(rect){
   ctx.restore();
 }
 
+// Follow action does nothing at all until the person clicks the video, and a
+// sentence in the sidebar is not enough — people skip sidebar text and conclude
+// the feature is broken. So the instruction goes on the picture itself, where
+// they are already looking, and disappears the moment the first point exists.
+// Preview only: it must never reach the exported file.
+function drawPointPrompt(rect){
+  const msg = video.paused
+    ? 'Click where the camera should look'
+    : 'Pause, then click where the camera should look';
+
+  let size = Math.max(canvas.width*0.011, Math.min(canvas.width*0.019, rect.w*0.038));
+  ctx.font = `600 ${size}px -apple-system, "Inter", "Segoe UI", Helvetica, Arial, sans-serif`;
+  let tw = ctx.measureText(msg).width;
+  const maxW = rect.w*0.86;
+  if(tw > maxW){                       // narrow frames, like a phone screen
+    size *= maxW/tw;
+    ctx.font = `600 ${size}px -apple-system, "Inter", "Segoe UI", Helvetica, Arial, sans-serif`;
+    tw = ctx.measureText(msg).width;
+  }
+
+  const padX = size*0.85, padY = size*0.6;
+  const pw = tw + padX*2, ph = size*1.35 + padY*2;
+  const px = rect.x + (rect.w - pw)/2;
+  const py = rect.y + (rect.h - ph)/2;
+
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.35)';
+  ctx.shadowBlur = size*0.9;
+  ctx.shadowOffsetY = size*0.25;
+  ctx.fillStyle = 'rgba(16,24,21,0.88)';
+  roundRect(px, py, pw, ph, ph/2);
+  ctx.fill();
+  ctx.restore();
+
+  ctx.fillStyle = '#ffffff';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(msg, rect.x + rect.w/2, py + ph/2);
+  ctx.textAlign = 'start';
+  ctx.textBaseline = 'alphabetic';
+}
+
+function needsPointPrompt(){
+  return !isExporting && state.hasVideo && state.fit === 'smart'
+      && cam.mode === 'manual' && cam.points.length === 0;
+}
+
 function draw(){
   drawBackground();
 
@@ -1666,6 +1809,10 @@ function draw(){
     if(state.layerB.enabled) drawLayer(state.layerB);
     if(!isExporting && cam.debug && state.fit==='smart'){
       drawCameraPath(layeredFrameRect(state.layerA.frame, 0, 0, canvas.width*state.layerA.scale/100));
+    }
+    if(needsPointPrompt()){
+      const l = state.layerA;
+      drawPointPrompt(layeredFrameRect(l.frame, canvas.width*l.x/100, canvas.height*l.y/100, canvas.width*l.scale/100));
     }
     return;
   }
@@ -1677,6 +1824,7 @@ function draw(){
   if(rect.kind === 'laptop') drawLaptopOverlay(rect);
 
   if(!isExporting && cam.debug && state.fit==='smart') drawCameraPath(rect);
+  if(needsPointPrompt()) drawPointPrompt(rect);
 }
 
 let rafId=null;
