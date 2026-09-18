@@ -135,6 +135,38 @@
             <button data-layout="layered">Layered (multi-device)</button>
           </div>
         </fieldset>
+
+        <!-- Sits immediately under the Layout choice it belongs to. Two unrelated
+             fieldsets used to stand between them, so the controls for the layout
+             you had just picked were below the fold. -->
+        <div id="layeredPanel" style="display:none;">
+          <fieldset>
+            <legend>Back device</legend>
+            <div class="seg cols3" id="layerAFrameSeg">
+              <button data-frame="laptop" class="active">Laptop</button>
+              <button data-frame="desktop">Desktop</button>
+              <button data-frame="browser">Browser</button>
+            </div>
+            <p class="hint" style="margin:8px 0 0;">Plays your main recording, the one loaded at the top.</p>
+            <div class="row" style="margin-top:10px;"><span>X position</span><input type="range" id="layerAx" min="0" max="100" value="50"></div>
+            <div class="row"><span>Y position</span><input type="range" id="layerAy" min="0" max="100" value="52"></div>
+            <div class="row"><span>Size</span><input type="range" id="layerAscale" min="20" max="100" value="70"></div>
+          </fieldset>
+          <fieldset>
+            <legend style="display:flex;align-items:center;gap:6px;">
+              <input type="checkbox" id="layerBEnabled" checked style="margin:0;"> Phone in front
+            </legend>
+            <label class="drop" id="dropZoneB" style="padding:16px 14px;font-size:12.5px;margin-bottom:10px;">
+              Click or drop your mobile recording
+              <input type="file" id="fileInputB" accept="video/*">
+            </label>
+            <p class="hint" id="layerBNote" style="margin:0 0 12px;">Record your site in a phone-shaped window and drop it here. Without it the phone just repeats the desktop recording, squeezed.</p>
+            <div class="row"><span>X position</span><input type="range" id="layerBx" min="0" max="100" value="76"></div>
+            <div class="row"><span>Y position</span><input type="range" id="layerBy" min="0" max="100" value="80"></div>
+            <div class="row"><span>Size</span><input type="range" id="layerBscale" min="10" max="80" value="30"></div>
+          </fieldset>
+        </div>
+
         <fieldset id="deviceFrameFieldset">
           <legend>Device frame</legend>
           <div class="seg cols3" id="frameSeg">
@@ -194,39 +226,6 @@
         <canvas id="zoomStrip" class="zoomstrip" width="560" height="52"></canvas>
         <p class="hint" id="zoomStripNote" style="margin:6px 0 0;">Each point gets its own zoom. The line drops to the bottom wherever the whole screen is showing.</p>
         <div class="row" style="margin-top:12px;"><span>Show camera path</span><input type="checkbox" id="camDebug"></div>
-      </div>
-
-      <div class="panel" id="layeredPanel" style="display:none;">
-        <h3>Layered devices</h3>
-        <fieldset>
-          <legend>Layer A (back)</legend>
-          <div class="seg cols3" id="layerAFrameSeg">
-            <button data-frame="laptop" class="active">Laptop</button>
-            <button data-frame="desktop">Desktop</button>
-            <button data-frame="browser">Browser</button>
-          </div>
-          <div class="row"><span>X position</span><input type="range" id="layerAx" min="0" max="100" value="50"></div>
-          <div class="row"><span>Y position</span><input type="range" id="layerAy" min="0" max="100" value="52"></div>
-          <div class="row"><span>Size</span><input type="range" id="layerAscale" min="20" max="100" value="70"></div>
-        </fieldset>
-        <fieldset>
-          <legend style="display:flex;align-items:center;gap:6px;">
-            <input type="checkbox" id="layerBEnabled" checked style="margin:0;"> Layer B (front)
-          </legend>
-          <div class="seg cols3" id="layerBFrameSeg">
-            <button data-frame="mobile" class="active">Mobile</button>
-            <button data-frame="laptop">Laptop</button>
-            <button data-frame="browser">Browser</button>
-          </div>
-          <label class="drop" id="dropZoneB" style="padding:14px;font-size:12px;margin:10px 0 12px;">
-            Click or drop a second recording for this device
-            <input type="file" id="fileInputB" accept="video/*">
-          </label>
-          <p class="hint" id="layerBNote" style="margin:-6px 0 12px;">Record your site in a phone-shaped window and drop it here, so the phone shows the mobile layout instead of a squeezed desktop one.</p>
-          <div class="row"><span>X position</span><input type="range" id="layerBx" min="0" max="100" value="76"></div>
-          <div class="row"><span>Y position</span><input type="range" id="layerBy" min="0" max="100" value="80"></div>
-          <div class="row"><span>Size</span><input type="range" id="layerBscale" min="10" max="80" value="30"></div>
-        </fieldset>
       </div>
 
       <div class="panel">
@@ -542,7 +541,10 @@ function wireLayerFrameSeg(id, layerObj){
   });
 }
 wireLayerFrameSeg('layerAFrameSeg', state.layerA);
-wireLayerFrameSeg('layerBFrameSeg', state.layerB);
+// The front device is always the phone. A laptop in front of a laptop is not a
+// shot anyone wants, and the whole point of the layered mockup is showing the
+// wide layout and the mobile layout together — so the choice is removed rather
+// than offered and then regretted. state.layerB.frame stays 'mobile'.
 
 ['layerAx','layerAy','layerAscale'].forEach(id=>{
   document.getElementById(id).addEventListener('input', e=>{
