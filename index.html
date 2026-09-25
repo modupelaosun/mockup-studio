@@ -88,6 +88,10 @@
   .export-btn{width:100%;background:var(--accent);color:#fff;border:none;border-radius:8px;padding:13px;font-size:13.5px;font-weight:600;cursor:pointer;letter-spacing:.01em;}
   .export-btn:disabled{background:#c7c3ba;cursor:not-allowed;}
   .export-btn:hover:not(:disabled){background:#265c4e;}
+  /* Once a file exists, downloading it is the next action, so the export button
+     steps back rather than competing with it for the same emphasis. */
+  .export-btn.demoted{background:#fff;color:var(--ink);border:1px solid var(--line);}
+  .export-btn.demoted:hover:not(:disabled){background:var(--paper);border-color:var(--ink);}
   .ghost-btn{width:100%;background:#fff;color:var(--ink);border:1px solid var(--ink);border-radius:8px;padding:10px;font-size:12.5px;font-weight:600;cursor:pointer;}
   .ghost-btn:hover:not(:disabled){background:var(--ink);color:#fff;}
   .ghost-btn:disabled{border-color:var(--line);color:#9a978f;cursor:not-allowed;background:#fff;}
@@ -273,7 +277,8 @@
         <button class="export-btn" id="exportBtn" disabled>Load a video first</button>
         <div class="progress"><i id="progressBar"></i></div>
         <div class="status" id="statusText"></div>
-        <button class="export-btn" id="convertBtn" style="display:none;margin-top:8px;background:var(--warn);">Convert to MP4</button>
+        <!-- Secondary, not orange: converting is an alternative, not a warning. -->
+        <button class="ghost-btn" id="convertBtn" style="display:none;margin-top:8px;">Convert to MP4</button>
 
         <!-- The finished file is shown, not just handed to the browser. A scripted
              click on a hidden link is ignored outright by mobile browsers, so the
@@ -667,6 +672,12 @@ function presentResult(blob, filename){
         : 'Tap Download. If nothing happens, press and hold the video above and save it from there.')
     : 'Press Download to save it. It goes to your usual downloads folder.';
 
+  // Hand the emphasis over: Download becomes the one primary action, and the
+  // export button steps back and relabels, since re-exporting is now the
+  // alternative rather than the obvious next move.
+  exportBtn.classList.add('demoted');
+  exportBtn.textContent = 'Export again';
+
   resultPanel.style.display = 'block';
   resultPanel.scrollIntoView({behavior:'smooth', block:'nearest'});
 }
@@ -715,6 +726,7 @@ function loadFile(file){
     transport.style.display = 'flex';
     exportBtn.disabled = false;
     exportBtn.textContent = 'Record & Export';
+    exportBtn.classList.remove('demoted');   // new recording, nothing exported from it yet
     analyzeBtn.disabled = false;
     sizeCanvas();
     draw();
@@ -2032,9 +2044,11 @@ exportBtn.addEventListener('click', async ()=>{
   if(!state.hasVideo || cam.analyzing) return;
   exportBtn.disabled = true;
   convertBtn.style.display = 'none';
-  // Clear the previous file so nobody downloads the old one by mistake.
+  // Clear the previous file so nobody downloads the old one by mistake, and take
+  // the emphasis back while this is the only action running.
   resultPanel.style.display = 'none';
   resultPreview.removeAttribute('src');
+  exportBtn.classList.remove('demoted');
   statusText.textContent = 'Recording…';
   progressBar.style.width='0%';
   isExporting = true;
