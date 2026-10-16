@@ -1,0 +1,10 @@
+{
+  "name": "mockup-studio",
+  "version": "1.0.0",
+  "description": "Screen recording to device frame mockup video exporter",
+  "scripts": {
+    "dev": "npx serve ."
+  },
+  "author": "Modupe Laosun",
+  "license": "MIT"
+}

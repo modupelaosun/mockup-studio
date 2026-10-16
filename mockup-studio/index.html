@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup Studio — Modupe Laosun</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Mockup<span>Studio</span></h1>
+      <p>screen recording → device frame → export</p>
+    </div>
+    <p class="by">Built by <strong>Modupe Laosun</strong><br>
+      <a href="mailto:laosunmodupe@gmail.com?subject=Mockup%20Studio%20feedback">laosunmodupe@gmail.com</a></p>
+  </header>
+
+  <div class="layout">
+    <!-- CONTROLS -->
+    <div class="controls">
+      <div class="panel">
+        <h3>Source video</h3>
+        <label class="drop" id="dropZone">
+          Click or drop a video file<br>(mp4, mov, webm)
+          <input type="file" id="fileInput" accept="video/*">
+        </label>
+      </div>
+
+      <div class="panel">
+        <h3>Format</h3>
+        <fieldset>
+          <legend>Canvas</legend>
+          <div class="seg" id="formatSeg">
+            <button data-format="landscape" class="active">Landscape</button>
+            <button data-format="portrait">Vertical (IG)</button>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Layout</legend>
+          <div class="seg" id="layoutSeg">
+            <button data-layout="single" class="active">Single frame</button>
+            <button data-layout="layered">Layered (multi-device)</button>
+          </div>
+        </fieldset>
+
+        <!-- Sits immediately under the Layout choice it belongs to. Two unrelated
+             fieldsets used to stand between them, so the controls for the layout
+             you had just picked were below the fold. -->
+        <div id="layeredPanel" style="display:none;">
+          <fieldset>
+            <legend>Back device</legend>
+            <div class="seg cols3" id="layerAFrameSeg">
+              <button data-frame="laptop" class="active">Laptop</button>
+              <button data-frame="desktop">Desktop</button>
+              <button data-frame="browser">Browser</button>
+            </div>
+            <p class="hint" style="margin:8px 0 0;">Plays your main recording, the one loaded at the top.</p>
+            <div class="row" style="margin-top:10px;"><span>X position</span><input type="range" id="layerAx" min="0" max="100" value="50"></div>
+            <div class="row"><span>Y position</span><input type="range" id="layerAy" min="0" max="100" value="52"></div>
+            <div class="row"><span>Size</span><input type="range" id="layerAscale" min="20" max="100" value="70"></div>
+          </fieldset>
+          <fieldset>
+            <legend style="display:flex;align-items:center;gap:6px;">
+              <input type="checkbox" id="layerBEnabled" checked style="margin:0;"> Phone in front
+            </legend>
+            <label class="drop" id="dropZoneB" style="padding:16px 14px;font-size:12.5px;margin-bottom:10px;">
+              Click or drop your mobile recording
+              <input type="file" id="fileInputB" accept="video/*">
+            </label>
+            <p class="hint" id="layerBNote" style="margin:0 0 12px;">Record your site in a phone-shaped window and drop it here. Without it the phone just repeats the desktop recording, squeezed.</p>
+            <div class="row"><span>X position</span><input type="range" id="layerBx" min="0" max="100" value="76"></div>
+            <div class="row"><span>Y position</span><input type="range" id="layerBy" min="0" max="100" value="80"></div>
+            <div class="row"><span>Size</span><input type="range" id="layerBscale" min="10" max="80" value="30"></div>
+          </fieldset>
+        </div>
+
+        <fieldset id="deviceFrameFieldset">
+          <legend>Device frame</legend>
+          <div class="seg cols3" id="frameSeg">
+            <button data-frame="none" class="active">None</button>
+            <button data-frame="laptop">Laptop</button>
+            <button data-frame="desktop">Desktop</button>
+            <button data-frame="mobile">Mobile</button>
+            <button data-frame="browser">Browser</button>
+          </div>
+          <div class="row" style="margin-top:10px;margin-bottom:0;"><span>Match screen to my recording</span><input type="checkbox" id="matchChk" checked></div>
+          <div class="row" style="margin-top:10px;margin-bottom:0;"><span>Device size</span><input type="range" id="deviceSize" min="0" max="100" value="45"></div>
+        </fieldset>
+        <fieldset id="finishFieldset">
+          <legend>Finish</legend>
+          <div class="seg" id="finishSeg">
+            <button data-finish="black" class="active">Space black</button>
+            <button data-finish="silver">Silver</button>
+          </div>
+          <div class="row" style="margin-top:10px;margin-bottom:0;"><span>Screen glare</span><input type="checkbox" id="glareChk"></div>
+        </fieldset>
+        <fieldset>
+          <legend>How the video sits in the screen</legend>
+          <div class="seg cols3" id="fitSeg">
+            <button data-fit="cover" class="active">Fill</button>
+            <button data-fit="contain">Show all</button>
+            <button data-fit="smart">Follow action</button>
+          </div>
+        </fieldset>
+      </div>
+
+      <div class="panel" id="camPanel" style="display:none;">
+        <h3>Follow the action</h3>
+        <fieldset>
+          <legend>Where should the camera look?</legend>
+          <div class="seg" id="camModeSeg">
+            <button data-cammode="manual" class="active">I'll point at it</button>
+            <button data-cammode="auto">Find it for me</button>
+          </div>
+        </fieldset>
+
+        <div id="manualCam">
+          <p class="hint">Play to the moment that matters, pause, then click that spot in the preview. The camera moves there and zooms in. Add as many as you like — it eases between them and pulls back out in the gaps.</p>
+          <div id="pointList" class="points"><p class="empty">No camera points yet. Pause and click the preview to add one.</p></div>
+          <button class="ghost-btn" id="clearPointsBtn" disabled>Remove all points</button>
+        </div>
+
+        <div id="autoCam" style="display:none;">
+          <p class="hint">Scans for where the picture changes and zooms there. It follows movement, not your cursor, so on a page that scrolls it may not land where you expect. Pointing at it yourself is more reliable.</p>
+          <button class="ghost-btn" id="analyzeBtn" disabled>Scan recording</button>
+          <div class="progress"><i id="camBar"></i></div>
+          <div class="status" id="camStatus"></div>
+        </div>
+
+        <div class="row" style="margin-top:14px;"><span>How far in</span><input type="range" id="camZoom" min="0" max="100" value="55"></div>
+        <div class="row"><span>How long it stays in</span><input type="range" id="camHold" min="30" max="300" value="100"></div>
+        <div class="row"><span>How fast it moves</span><input type="range" id="camSmooth" min="0" max="100" value="60"></div>
+        <canvas id="zoomStrip" class="zoomstrip" width="560" height="52"></canvas>
+        <p class="hint" id="zoomStripNote" style="margin:6px 0 0;">Each point gets its own zoom. The line drops to the bottom wherever the whole screen is showing.</p>
+        <div class="row" style="margin-top:12px;"><span>Show camera path</span><input type="checkbox" id="camDebug"></div>
+      </div>
+
+      <div class="panel">
+        <h3>Background</h3>
+        <fieldset>
+          <legend>Style</legend>
+          <div class="seg cols3" id="bgSeg">
+            <button data-bg="wallpaper" class="active">Wallpaper</button>
+            <button data-bg="solid">Solid</button>
+            <button data-bg="gradient">Gradient</button>
+            <button data-bg="blur">Blurred video</button>
+            <button data-bg="photo">My image</button>
+          </div>
+        </fieldset>
+        <div id="wallpaperControls">
+          <div class="wpgrid" id="wpGrid"></div>
+          <div class="row"><span>Brightness</span><input type="range" id="wpDim" min="35" max="130" value="100"></div>
+        </div>
+        <div class="row" id="solidRow" style="display:none;">
+          <span>Color</span>
+          <div class="swatches" id="swatches"></div>
+        </div>
+        <div id="photoControls" style="display:none;">
+          <label class="drop" id="photoDrop" style="padding:16px;font-size:12.5px;margin-bottom:12px;">
+            Click or drop any photo to use as the background
+            <input type="file" id="photoInput" accept="image/*">
+          </label>
+          <div class="row"><span>Brightness</span><input type="range" id="imgDim" min="35" max="130" value="100"></div>
+          <div class="row"><span>Blur</span><input type="range" id="imgBlur" min="0" max="100" value="0"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Export</h3>
+        <fieldset>
+          <legend>Resolution</legend>
+          <div class="seg cols3" id="qualitySeg">
+            <button data-quality="720">720p</button>
+            <button data-quality="1080" class="active">1080p</button>
+            <button data-quality="1440">1440p</button>
+          </div>
+          <p class="hint" style="margin:8px 0 0;">Pick a resolution above your recording's own. Below it, small text turns to mush.</p>
+        </fieldset>
+        <button class="export-btn" id="exportBtn" disabled>Load a video first</button>
+        <div class="progress"><i id="progressBar"></i></div>
+        <div class="status" id="statusText"></div>
+        <!-- Secondary, not orange: converting is an alternative, not a warning. -->
+        <button class="ghost-btn" id="convertBtn" style="display:none;margin-top:8px;">Convert to MP4</button>
+
+        <!-- The finished file is shown, not just handed to the browser. A scripted
+             click on a hidden link is ignored outright by mobile browsers, so the
+             file vanished with nothing on screen to save. -->
+        <div id="resultPanel" style="display:none;">
+          <h3 style="margin:18px 0 10px;">Your file</h3>
+          <video id="resultPreview" class="resultvid" controls playsinline></video>
+          <a class="export-btn dlbtn" id="downloadBtn" download>Download</a>
+          <p class="hint" id="resultNote" style="margin:9px 0 0;"></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- STAGE -->
+    <div class="stage">
+      <div id="stageEmpty" class="stage-empty">Your framed preview will appear here.<br>Upload a video on the left to get started.</div>
+      <canvas id="canvas" style="display:none;"></canvas>
+      <div class="transport" id="transport" style="display:none;">
+        <button id="playBtn" aria-label="Play or pause">▶</button>
+        <input type="range" id="seek" min="0" max="1000" value="0" aria-label="Seek">
+        <span class="time" id="timeLabel">0:00 / 0:00</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<video id="srcVideo" style="display:none;" playsinline muted></video>
+<video id="srcVideoB" style="display:none;" playsinline muted></video>
+
+<script src="js/state.js"></script>
+<script src="js/wallpapers.js"></script>
+<script src="js/controls.js"></script>
+<script src="js/source-video.js"></script>
+<script src="js/playback.js"></script>
+<script src="js/canvas-size.js"></script>
+<script src="js/camera.js"></script>
+<script src="js/painters.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/background.js"></script>
+<script src="js/devices.js"></script>
+<script src="js/render.js"></script>
+<script src="js/export.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
